@@ -240,7 +240,10 @@ const App = {
                     const data = msg.data || {};
                     this.state.ups = data;
                     this._pushHistory(data);
-                    this.refresh();
+                    // Only refresh dashboard live — other pages refresh on navigation
+                    if (this._currentPage === 'dashboard') {
+                        this.refresh();
+                    }
                 } else if (msg.type === 'error') {
                     this.setConnectionStatus('disconnected');
                 }
