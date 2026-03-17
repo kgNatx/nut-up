@@ -1,0 +1,15 @@
+[Unit]
+Description=nut-up web UI
+After=network.target nut-server.service
+Wants=nut-server.service
+
+[Service]
+Type=simple
+ExecStart=/opt/nut-up/venv/bin/nut-up web --host 0.0.0.0 --port 3494
+WorkingDirectory=/opt/nut-up
+Restart=on-failure
+RestartSec=5
+User=root
+
+[Install]
+WantedBy=multi-user.target
