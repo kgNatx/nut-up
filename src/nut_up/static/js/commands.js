@@ -7,6 +7,24 @@
     var _commands = {};
     var _rwVars = {};
 
+    // Commands that can cut power, shut down, or otherwise cause outages
+    var _dangerousPrefixes = [
+        'load.off', 'load.cycle',
+        'shutdown.', 'shutdown.return', 'shutdown.stayoff', 'shutdown.reboot',
+        'calibrate.start',
+        'bypass.start',
+        'outlet.', // outlet.N.load.off, outlet.N.load.cycle
+    ];
+
+    function _isDangerous(cmd) {
+        for (var i = 0; i < _dangerousPrefixes.length; i++) {
+            if (cmd === _dangerousPrefixes[i] || cmd.indexOf(_dangerousPrefixes[i]) === 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     function render() {
         const esc = App.escapeHtml.bind(App);
         const escAttr = App.escapeAttr.bind(App);
@@ -38,10 +56,12 @@
                 html += '<tbody>';
                 for (const cmd of _commands[name]) {
                     const desc = App.getDescription('commands', cmd);
+                    const dangerous = _isDangerous(cmd);
+                    const btnClass = dangerous ? 'btn btn-danger-hover btn-sm' : 'btn btn-ghost btn-sm';
                     html += '<tr>';
                     html += '<td class="mono">' + esc(cmd) + '</td>';
                     html += '<td class="text-muted" style="font-size:12px">' + esc(desc) + '</td>';
-                    html += '<td style="width:60px;text-align:right"><button class="btn btn-ghost btn-sm" onclick="runCommand(\'' + escAttr(name) + '\', \'' + escAttr(cmd) + '\')">Run</button></td>';
+                    html += '<td style="width:60px;text-align:right"><button class="' + btnClass + '" onclick="runCommand(\'' + escAttr(name) + '\', \'' + escAttr(cmd) + '\')">Run</button></td>';
                     html += '</tr>';
                 }
                 html += '</tbody></table></div>';
@@ -105,7 +125,13 @@
     };
 
     window.runCommand = function (upsName, cmd) {
-        if (!confirm('Run command "' + cmd + '" on ' + upsName + '?')) return;
+        var msg;
+        if (_isDangerous(cmd)) {
+            msg = 'WARNING: "' + cmd + '" may cut power to connected equipment!\n\nAre you sure you want to run this on ' + upsName + '?';
+        } else {
+            msg = 'Run command "' + cmd + '" on ' + upsName + '?';
+        }
+        if (!confirm(msg)) return;
         App.api('/api/ups/' + encodeURIComponent(upsName) + '/command', {
             method: 'POST',
             body: { command: cmd },

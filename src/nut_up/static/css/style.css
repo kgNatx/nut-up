@@ -423,6 +423,17 @@ button, .btn {
 }
 .btn-danger:hover { filter: brightness(1.1); }
 
+.btn-danger-hover {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+}
+.btn-danger-hover:hover {
+    background: var(--danger);
+    color: #fff;
+    border-color: var(--danger);
+}
+
 .btn-ghost {
     background: transparent;
     color: var(--text-secondary);
