@@ -110,8 +110,13 @@ const App = {
     },
 
     refresh() {
+        // Re-render current page WITHOUT calling init again
         if (this._currentPage && this._pages[this._currentPage]) {
-            this._renderPage(this._currentPage);
+            const content = document.getElementById('content');
+            const renderFn = this._pages[this._currentPage];
+            if (renderFn) {
+                content.innerHTML = renderFn();
+            }
         }
     },
 
