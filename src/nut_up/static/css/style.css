@@ -702,6 +702,43 @@ select.input {
     font-size: 0.8rem;
 }
 
+.cmd-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.cmd-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    transition: background 0.15s ease;
+}
+
+.cmd-item:hover {
+    background: var(--bg-primary);
+}
+
+.cmd-item-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.cmd-name {
+    font-size: 13px;
+    color: var(--text-primary);
+}
+
+.cmd-desc {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
 /* ============================================================
    Animations
    ============================================================ */

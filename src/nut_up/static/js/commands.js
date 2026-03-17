@@ -33,9 +33,16 @@
             html += '</div>';
 
             if (_commands[name] && _commands[name].length > 0) {
-                html += '<div class="cmd-grid">';
+                html += '<div class="cmd-list">';
                 for (const cmd of _commands[name]) {
-                    html += '<button class="btn btn-ghost" onclick="runCommand(\'' + escAttr(name) + '\', \'' + escAttr(cmd) + '\')">' + esc(cmd) + '</button>';
+                    const desc = App.getDescription('commands', cmd);
+                    html += '<div class="cmd-item">';
+                    html += '<div class="cmd-item-info">';
+                    html += '<span class="cmd-name mono">' + esc(cmd) + '</span>';
+                    if (desc) html += '<span class="cmd-desc">' + esc(desc) + '</span>';
+                    html += '</div>';
+                    html += '<button class="btn btn-ghost btn-sm" onclick="runCommand(\'' + escAttr(name) + '\', \'' + escAttr(cmd) + '\')">Run</button>';
+                    html += '</div>';
                 }
                 html += '</div>';
             } else if (_commands[name]) {
@@ -55,15 +62,17 @@
 
             if (_rwVars[name] && Object.keys(_rwVars[name]).length > 0) {
                 html += '<div class="table-wrap"><table>';
-                html += '<thead><tr><th>Variable</th><th>Current Value</th><th>New Value</th><th></th></tr></thead>';
+                html += '<thead><tr><th>Variable</th><th>Description</th><th>Current</th><th>New Value</th><th></th></tr></thead>';
                 html += '<tbody>';
                 const rwKeys = Object.keys(_rwVars[name]).sort();
                 for (const vn of rwKeys) {
                     const currentVal = _rwVars[name][vn];
+                    const desc = App.getDescription('variables', vn);
                     html += '<tr>';
                     html += '<td class="mono">' + esc(vn) + '</td>';
+                    html += '<td class="text-muted" style="font-size:12px">' + esc(desc) + '</td>';
                     html += '<td class="mono">' + esc(currentVal) + '</td>';
-                    html += '<td><input class="input" type="text" id="rw-' + esc(name) + '-' + esc(vn) + '" value="' + esc(currentVal) + '" style="max-width:200px"></td>';
+                    html += '<td><input class="input" type="text" id="rw-' + esc(name) + '-' + esc(vn) + '" value="' + esc(currentVal) + '" style="max-width:160px"></td>';
                     html += '<td style="width:60px"><button class="btn btn-primary btn-sm" onclick="setVariable(\'' + escAttr(name) + '\', \'' + escAttr(vn) + '\')">Set</button></td>';
                     html += '</tr>';
                 }

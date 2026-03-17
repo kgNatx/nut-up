@@ -13,6 +13,9 @@ const App = {
         connected: false,
     },
 
+    // Cached descriptions for NUT variables and commands
+    _descriptions: { variables: {}, commands: {} },
+
     _pages: {},
     _initFns: {},
     _currentPage: null,
@@ -420,6 +423,16 @@ const App = {
     },
 
     /**
+     * Look up a human-readable description for a NUT variable or command.
+     * @param {string} type - 'variables' or 'commands'
+     * @param {string} name - Variable or command name
+     * @returns {string} Description or empty string
+     */
+    getDescription(type, name) {
+        return (this._descriptions[type] || {})[name] || '';
+    },
+
+    /**
      * Copies text to clipboard with toast feedback.
      * @param {string} text - Text to copy
      */
@@ -455,6 +468,11 @@ const App = {
         this.setupRouter();
         this.connectWebSocket();
         this._onRouteChange();
+
+        // Pre-load descriptions
+        this.api('/api/descriptions').then(desc => {
+            this._descriptions = desc;
+        }).catch(() => {});
 
         // Pre-load server-side history
         this.api('/api/ups').then(upsData => {

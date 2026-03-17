@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 
 from nut_up import __version__
+from nut_up.descriptions import COMMANDS as CMD_DESCS, VARIABLES as VAR_DESCS
 from nut_up.upsd_client import NUTError
 
 router = APIRouter()
@@ -79,6 +80,12 @@ async def get_ups_commands(name: str) -> list:
         raise HTTPException(status_code=502, detail=str(e))
     except OSError as e:
         raise HTTPException(status_code=503, detail=str(e))
+
+
+@router.get("/api/descriptions")
+async def get_descriptions() -> dict:
+    """Return human-readable descriptions for known NUT variables and commands."""
+    return {"variables": VAR_DESCS, "commands": CMD_DESCS}
 
 
 @router.get("/api/ups/{name}/clients")

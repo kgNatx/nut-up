@@ -43,17 +43,19 @@
                 }
 
                 html += '<div class="table-wrap"><table>';
-                html += '<thead><tr><th>Variable</th><th>Value</th><th></th></tr></thead>';
+                html += '<thead><tr><th>Variable</th><th>Value</th><th>Description</th><th></th></tr></thead>';
                 html += '<tbody>';
 
                 const groupKeys = Object.keys(groups).sort();
                 for (const gk of groupKeys) {
-                    html += '<tr class="group-header"><td colspan="3">' + esc(gk) + '.*</td></tr>';
+                    html += '<tr class="group-header"><td colspan="4">' + esc(gk) + '.*</td></tr>';
                     for (const vn of groups[gk]) {
                         const val = vars[vn];
+                        const desc = App.getDescription('variables', vn);
                         html += '<tr>';
                         html += '<td class="mono">' + esc(vn) + '</td>';
                         html += '<td class="mono">' + esc(val) + '</td>';
+                        html += '<td class="text-muted" style="font-size:12px">' + esc(desc) + '</td>';
                         html += '<td style="width:60px;text-align:right">' +
                             '<button class="btn btn-ghost btn-sm" onclick="App.copyToClipboard(\'' + escAttr(val) + '\')">Copy</button>' +
                             '</td>';
