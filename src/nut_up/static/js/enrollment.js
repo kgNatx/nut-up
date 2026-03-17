@@ -6,6 +6,7 @@
     var _keys = [];
     var _clients = [];
     var _createdKey = null;
+    var _curlCmd = null;
 
     function render() {
         const esc = App.escapeHtml.bind(App);
@@ -39,12 +40,12 @@
         // Show created key banner
         if (_createdKey) {
             const setupUrl = window.location.origin + '/setup?key=' + encodeURIComponent(_createdKey);
-            const curlCmd = 'curl -sL "' + setupUrl + '" | sudo bash';
+            _curlCmd = 'curl -sL "' + setupUrl + '" | sudo bash';
             html += '<div class="banner mt-16">';
             html += '<div class="banner-title">Enrollment Key Created</div>';
             html += '<p style="margin-bottom:8px;color:var(--text-secondary)">Run this on the client machine:</p>';
-            html += '<div class="code-block">' + esc(curlCmd);
-            html += '<button class="copy-btn" onclick="App.copyToClipboard(\'' + escAttr(curlCmd) + '\')">Copy</button>';
+            html += '<div class="code-block">' + esc(_curlCmd);
+            html += '<button class="copy-btn" onclick="copyCurlCmd()">Copy</button>';
             html += '</div>';
             html += '</div>';
         }
@@ -141,6 +142,10 @@
     App.registerPage('enrollment', render, init);
 
     // Global functions for onclick handlers
+    window.copyCurlCmd = function () {
+        if (_curlCmd) App.copyToClipboard(_curlCmd);
+    };
+
     window.createEnrollmentKey = function () {
         const labelEl = document.getElementById('key-label');
         const expiryEl = document.getElementById('key-expiry');
