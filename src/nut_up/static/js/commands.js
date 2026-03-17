@@ -47,7 +47,7 @@
             html += '<div class="card section">';
             html += '<div class="card-header">';
             html += '<div class="card-title">Instant Commands - ' + esc(name) + '</div>';
-            html += '<button class="btn btn-ghost btn-sm" onclick="loadCommands(\'' + escAttr(name) + '\')">Load Commands</button>';
+            html += '<button class="btn btn-ghost btn-sm" onclick="loadCommands(\'' + escAttr(name) + '\')">Refresh</button>';
             html += '</div>';
 
             if (_commands[name] && _commands[name].length > 0) {
@@ -68,7 +68,7 @@
             } else if (_commands[name]) {
                 html += '<div class="text-muted" style="padding:8px 0">No instant commands available</div>';
             } else {
-                html += '<div class="text-muted" style="padding:8px 0">Click "Load Commands" to fetch available commands</div>';
+                html += '<div class="text-muted" style="padding:8px 0"><div class="spinner" style="margin:8px auto"></div></div>';
             }
 
             html += '</div>'; // end commands card
@@ -77,7 +77,7 @@
             html += '<div class="card section">';
             html += '<div class="card-header">';
             html += '<div class="card-title">Writable Variables - ' + esc(name) + '</div>';
-            html += '<button class="btn btn-ghost btn-sm" onclick="loadRwVars(\'' + escAttr(name) + '\')">Load Writable Vars</button>';
+            html += '<button class="btn btn-ghost btn-sm" onclick="loadRwVars(\'' + escAttr(name) + '\')">Refresh</button>';
             html += '</div>';
 
             if (_rwVars[name] && Object.keys(_rwVars[name]).length > 0) {
@@ -100,7 +100,7 @@
             } else if (_rwVars[name]) {
                 html += '<div class="text-muted" style="padding:8px 0">No writable variables available</div>';
             } else {
-                html += '<div class="text-muted" style="padding:8px 0">Click "Load Writable Vars" to fetch writable variables</div>';
+                html += '<div class="text-muted" style="padding:8px 0"><div class="spinner" style="margin:8px auto"></div></div>';
             }
 
             html += '</div>'; // end rw card
@@ -109,7 +109,16 @@
         return html;
     }
 
-    App.registerPage('commands', render);
+    function init() {
+        var names = Object.keys(App.state.ups);
+        for (var i = 0; i < names.length; i++) {
+            var name = names[i];
+            if (!_commands[name]) window.loadCommands(name);
+            if (!_rwVars[name]) window.loadRwVars(name);
+        }
+    }
+
+    App.registerPage('commands', render, init);
 
     // Expose functions globally for onclick handlers
     window.loadCommands = function (upsName) {
