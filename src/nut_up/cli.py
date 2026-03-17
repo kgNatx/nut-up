@@ -180,14 +180,31 @@ def cmd_server(args: argparse.Namespace) -> None:
             print(f"Failed to start web UI: {e}", file=sys.stderr)
             print("You can start it manually with: systemctl enable --now nut-up")
 
-    # 8. Print summary
+    # 8. Print summary and next steps
+    import socket
+
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        local_ip = s.getsockname()[0]
+        s.close()
+    except Exception:
+        local_ip = "YOUR_SERVER_IP"
+
     print("=== Setup complete ===")
     print(f"  UPS name:   {ups_name}")
     print(f"  Driver:     {device['driver']}")
-    print("  Mode:       netserver")
-    print("  Listening:  0.0.0.0:3493")
-    print(f"  Config dir: {conf_dir}")
-    print(f"  State file: {args.state_file}")
+    print(f"  Dashboard:  http://{local_ip}:3494")
+    print()
+    print("Next steps:")
+    print(f"  1. Open http://{local_ip}:3494 to see the dashboard")
+    print("  2. Go to Enrollment to create a key for your client machines")
+    print("  3. On each client, run the curl command shown in the UI")
+    print()
+    print("Useful commands:")
+    print("  nut-up status    Show service status")
+    print("  nut-up stop      Stop everything")
+    print("  nut-up start     Start everything")
 
 
 def cmd_start(args: argparse.Namespace) -> None:
