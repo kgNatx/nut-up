@@ -15,8 +15,11 @@ from nut_up.services import (
     install_nut_packages,
     is_nut_installed,
     nut_server_status,
+    nut_up_web_status,
     start_nut_server,
+    start_nut_up_web,
     stop_nut_server,
+    stop_nut_up_web,
 )
 from nut_up.state import StateManager
 
@@ -164,10 +167,18 @@ def cmd_server(args: argparse.Namespace) -> None:
         print("Starting NUT services...")
         try:
             start_nut_server()
-            print("NUT services started.\n")
+            print("NUT services started.")
         except Exception as e:
             print(f"Failed to start NUT services: {e}", file=sys.stderr)
             print("You can start them manually with: nut-up start")
+
+        print("Starting nut-up web UI...")
+        try:
+            start_nut_up_web()
+            print("Web UI started on port 3494.\n")
+        except Exception as e:
+            print(f"Failed to start web UI: {e}", file=sys.stderr)
+            print("You can start it manually with: systemctl enable --now nut-up")
 
     # 8. Print summary
     print("=== Setup complete ===")
@@ -180,29 +191,38 @@ def cmd_server(args: argparse.Namespace) -> None:
 
 
 def cmd_start(args: argparse.Namespace) -> None:
-    """Start all NUT services."""
+    """Start all NUT + nut-up services."""
     print("Starting NUT services...")
     try:
         start_nut_server()
-        print("All NUT services started.")
+        print("NUT services started.")
     except Exception as e:
-        print(f"Failed to start services: {e}", file=sys.stderr)
+        print(f"Failed to start NUT services: {e}", file=sys.stderr)
         sys.exit(1)
+    print("Starting nut-up web UI...")
+    try:
+        start_nut_up_web()
+        print("Web UI started on port 3494.")
+    except Exception as e:
+        print(f"Failed to start web UI: {e}", file=sys.stderr)
 
 
 def cmd_stop(args: argparse.Namespace) -> None:
-    """Stop all NUT services."""
-    print("Stopping NUT services...")
+    """Stop all NUT + nut-up services."""
+    print("Stopping services...")
+    stop_nut_up_web()
     stop_nut_server()
-    print("All NUT services stopped.")
+    print("All services stopped.")
 
 
 def cmd_status(args: argparse.Namespace) -> None:
-    """Show NUT service status."""
+    """Show NUT + nut-up service status."""
     status = nut_server_status()
-    print("NUT service status:")
+    web = nut_up_web_status()
+    print("Service status:")
     for unit, state in status.items():
         print(f"  {unit}: {state}")
+    print(f"  nut-up (web UI): {web}")
 
 
 def cmd_web(args: argparse.Namespace) -> None:

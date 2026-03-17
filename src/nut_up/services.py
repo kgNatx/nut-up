@@ -9,7 +9,7 @@ import subprocess
 NUT_UNITS = ["nut-driver-enumerator", "nut-server", "nut-monitor"]
 
 # nut-up web service unit
-NUT_UP_WEB_UNIT = "nut-up-web"
+NUT_UP_WEB_UNIT = "nut-up"
 
 
 def _run(cmd: list[str], check: bool = False) -> subprocess.CompletedProcess[str]:
