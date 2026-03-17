@@ -796,46 +796,49 @@ select.input {
     border: 1px solid var(--border);
 }
 
-.dash-metric-label {
-    font-size: 0.75rem;
+/* Metric card title — consistent across all three */
+
+.dash-metric-title {
+    font-size: 11px;
     color: var(--text-secondary);
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 1px;
     font-weight: 600;
-    margin-bottom: 8px;
+    margin-bottom: 12px;
 }
 
-/* Gauge SVGs */
+/* Ring gauge — shared across Battery, Load, Runtime */
 
-.dash-gauge-wrap {
+.dash-ring-wrap {
     display: flex;
     align-items: center;
     justify-content: center;
+    margin-bottom: 12px;
 }
 
-.dash-gauge-svg {
+.dash-ring-svg {
     transform: rotate(-90deg);
 }
 
-.dash-gauge-svg .gauge-track {
+.dash-ring-svg .ring-track {
     fill: none;
     stroke: var(--border);
-    stroke-width: 8;
+    stroke-width: 7;
 }
 
-.dash-gauge-svg .gauge-fill {
+.dash-ring-svg .ring-fill {
     fill: none;
-    stroke-width: 8;
+    stroke-width: 7;
     stroke-linecap: round;
     transition: stroke-dashoffset 0.6s ease, stroke 0.3s ease;
 }
 
-.dash-gauge-svg .gauge-text-group {
+.dash-ring-svg .ring-text-group {
     transform: rotate(90deg);
 }
 
-.dash-gauge-value {
-    font-size: 26px;
+.ring-center {
+    font-size: 28px;
     font-weight: 700;
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
@@ -844,64 +847,33 @@ select.input {
     dominant-baseline: central;
 }
 
-.dash-gauge-unit {
+.ring-unit {
     font-size: 12px;
     fill: var(--text-secondary);
     text-anchor: middle;
     dominant-baseline: hanging;
 }
 
-/* Battery graphic below gauge */
+/* Below-ring content area */
 
-.dash-battery-graphic {
-    margin-top: 10px;
+.dash-metric-sub {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    min-height: 48px;
 }
 
-/* Load wattage */
-
-.dash-load-watts {
-    display: block;
-    margin-top: 8px;
-    font-size: 0.82rem;
+.dash-sub-text {
+    font-size: 13px;
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     color: var(--text-secondary);
 }
 
-/* --- Runtime hero --- */
-
-.dash-runtime-hero {
-    justify-content: center;
-}
-
-.dash-runtime-value {
-    font-size: 2.8rem;
-    font-weight: 800;
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-    line-height: 1.1;
-    transition: color 0.3s ease;
-}
-
-.dash-runtime-bar-track {
-    width: 80%;
-    height: 6px;
-    background: var(--border);
-    border-radius: 3px;
-    margin-top: 10px;
-    overflow: hidden;
-}
-
-.dash-runtime-bar-fill {
-    height: 100%;
-    border-radius: 3px;
-    transition: width 0.6s ease, background 0.3s ease;
-}
-
-.dash-runtime-sub {
-    font-size: 0.7rem;
+.dash-metric-icon {
     color: var(--text-muted);
-    margin-top: 4px;
+    opacity: 0.6;
 }
 
 /* --- Voltage row --- */

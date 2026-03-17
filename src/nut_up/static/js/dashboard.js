@@ -266,21 +266,29 @@
     // Gauge builder (larger 140 px SVG gauge)
     // ==========================================================
 
-    function bigGauge(value, max, mode) {
+    /**
+     * Render a ring gauge SVG with a primary value centered and optional unit text.
+     * @param {number|string} value - Current value
+     * @param {number} max - Maximum value for fill calculation
+     * @param {string} mode - 'battery'|'load'|'runtime' for color logic
+     * @param {string} centerText - Text shown large in center of ring
+     * @param {string} [unitText] - Small text shown below center value
+     */
+    function ringGauge(value, max, mode, centerText, unitText) {
         const esc = App.escapeHtml.bind(App);
         const numVal = parseFloat(value);
         const numMax = parseFloat(max);
-        const size = 140;
-        const r = 58;
+        const size = 150;
+        const r = 62;
         const cx = size / 2;
         const cy = size / 2;
         const circumference = 2 * Math.PI * r;
 
         if (isNaN(numVal) || isNaN(numMax) || numMax === 0) {
-            return '<svg class="dash-gauge-svg" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">' +
-                '<circle class="gauge-track" cx="' + cx + '" cy="' + cy + '" r="' + r + '"/>' +
-                '<g class="gauge-text-group">' +
-                '<text class="dash-gauge-value" x="' + cx + '" y="' + cy + '">--</text>' +
+            return '<svg class="dash-ring-svg" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">' +
+                '<circle class="ring-track" cx="' + cx + '" cy="' + cy + '" r="' + r + '"/>' +
+                '<g class="ring-text-group">' +
+                '<text class="ring-center" x="' + cx + '" y="' + cy + '">--</text>' +
                 '</g></svg>';
         }
 
@@ -294,18 +302,26 @@
         } else if (mode === 'load') {
             if (pct > 0.9) color = 'var(--danger)';
             else if (pct > 0.7) color = 'var(--warning)';
+        } else if (mode === 'runtime') {
+            const secs = parseFloat(value);
+            if (secs < 600) color = 'var(--danger)';
+            else if (secs < 1800) color = 'var(--warning)';
         }
 
-        return '<svg class="dash-gauge-svg" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">' +
-            '<circle class="gauge-track" cx="' + cx + '" cy="' + cy + '" r="' + r + '"/>' +
-            '<circle class="gauge-fill" cx="' + cx + '" cy="' + cy + '" r="' + r + '" ' +
+        let textY = unitText ? cy - 6 : cy;
+        let svg = '<svg class="dash-ring-svg" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">' +
+            '<circle class="ring-track" cx="' + cx + '" cy="' + cy + '" r="' + r + '"/>' +
+            '<circle class="ring-fill" cx="' + cx + '" cy="' + cy + '" r="' + r + '" ' +
             'stroke="' + color + '" ' +
             'stroke-dasharray="' + circumference.toFixed(2) + '" ' +
             'stroke-dashoffset="' + offset.toFixed(2) + '"/>' +
-            '<g class="gauge-text-group">' +
-            '<text class="dash-gauge-value" x="' + cx + '" y="' + (cy - 4) + '">' + esc(Math.round(numVal)) + '</text>' +
-            '<text class="dash-gauge-unit" x="' + cx + '" y="' + (cy + 16) + '">%</text>' +
-            '</g></svg>';
+            '<g class="ring-text-group">' +
+            '<text class="ring-center" x="' + cx + '" y="' + textY + '">' + esc(centerText) + '</text>';
+        if (unitText) {
+            svg += '<text class="ring-unit" x="' + cx + '" y="' + (cy + 18) + '">' + esc(unitText) + '</text>';
+        }
+        svg += '</g></svg>';
+        return svg;
     }
 
     // ==========================================================
@@ -418,35 +434,63 @@
             // --- Top metrics row (3 cols) ---
             html += '<div class="dash-metrics-row">';
 
+            // Compute load wattage
+            var loadPct = parseFloat(load);
+            var nominalW = parseFloat(vars['ups.realpower.nominal']) || parseFloat(vars['ups.power.nominal']);
+            var loadWatts = (!isNaN(loadPct) && !isNaN(nominalW) && nominalW > 0) ? Math.round((loadPct / 100) * nominalW) : null;
+
+            // Compute runtime
+            var rt = formatRuntimeHero(batteryRuntime);
+            var rtSecs = parseInt(batteryRuntime, 10);
+            var rtMax = parseFloat(vars['battery.runtime.nominal']) || 7200;
+            var rtMaxFormatted = formatRuntimeHero(rtMax).text;
+
             // 1. Battery
             html += '<div class="dash-metric">';
-            html += '<div class="dash-metric-label">Battery</div>';
-            html += '<div class="dash-gauge-wrap">';
-            html += bigGauge(batteryCharge, 100, 'battery');
+            html += '<div class="dash-metric-title">BATTERY</div>';
+            html += '<div class="dash-ring-wrap">';
+            html += ringGauge(batteryCharge, 100, 'battery', (isNaN(parseFloat(batteryCharge)) ? '--' : Math.round(parseFloat(batteryCharge)) + '%'));
             html += '</div>';
-            html += '<div class="dash-battery-graphic">' + App.batteryHtml(batteryCharge) + '</div>';
+            html += '<div class="dash-metric-sub">' + App.batteryHtml(batteryCharge) + '</div>';
             html += '</div>';
 
             // 2. Load
             html += '<div class="dash-metric">';
-            html += '<div class="dash-metric-label">Load</div>';
-            html += '<div class="dash-gauge-wrap">';
-            html += bigGauge(load, 100, 'load');
+            html += '<div class="dash-metric-title">LOAD</div>';
+            html += '<div class="dash-ring-wrap">';
+            if (loadWatts !== null) {
+                html += ringGauge(load, 100, 'load', loadWatts + 'W', Math.round(loadPct) + '%');
+            } else {
+                html += ringGauge(load, 100, 'load', (isNaN(loadPct) ? '--' : Math.round(loadPct) + '%'));
+            }
             html += '</div>';
-            html += loadWattageLabel(vars);
+            html += '<div class="dash-metric-sub">';
+            if (loadWatts !== null) {
+                html += '<span class="dash-sub-text">of ' + esc(Math.round(nominalW)) + 'W</span>';
+            }
+            // Power plug icon for visual weight
+            html += '<svg class="dash-metric-icon" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">';
+            html += '<path d="M12 2v6M8 2v6M16 2v6"/>';
+            html += '<rect x="6" y="8" width="12" height="6" rx="1"/>';
+            html += '<path d="M10 14v3a2 2 0 0 0 4 0v-3"/>';
+            html += '<line x1="12" y1="19" x2="12" y2="22"/>';
+            html += '</svg>';
+            html += '</div>';
             html += '</div>';
 
-            // 3. Runtime (hero)
-            var rt = formatRuntimeHero(batteryRuntime);
-            var rtColor = runtimeColor(batteryRuntime);
-            var rtPct = runtimePct(batteryRuntime);
-            html += '<div class="dash-metric dash-runtime-hero">';
-            html += '<div class="dash-metric-label">Runtime</div>';
-            html += '<div class="dash-runtime-value" style="color:' + rtColor + '">' + esc(rt.text) + '</div>';
-            html += '<div class="dash-runtime-bar-track">';
-            html += '<div class="dash-runtime-bar-fill" style="width:' + rtPct.toFixed(1) + '%;background:' + rtColor + '"></div>';
+            // 3. Runtime (ring gauge)
+            html += '<div class="dash-metric">';
+            html += '<div class="dash-metric-title">RUNTIME</div>';
+            html += '<div class="dash-ring-wrap">';
+            html += ringGauge(batteryRuntime, rtMax, 'runtime', rt.text);
             html += '</div>';
-            html += '<div class="dash-runtime-sub">of 2h max</div>';
+            html += '<div class="dash-metric-sub"><span class="dash-sub-text">of ' + esc(rtMaxFormatted) + '</span>';
+            // Clock icon for visual weight
+            html += '<svg class="dash-metric-icon" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">';
+            html += '<circle cx="12" cy="12" r="10"/>';
+            html += '<polyline points="12 6 12 12 16 14"/>';
+            html += '</svg>';
+            html += '</div>';
             html += '</div>';
 
             html += '</div>'; // end dash-metrics-row
