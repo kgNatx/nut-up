@@ -90,9 +90,7 @@ async def _poll_ups(client: UpsdClient, manager: ConnectionManager) -> None:
             await asyncio.sleep(5)
 
             try:
-                client._reader, client._writer = await asyncio.open_connection(
-                    client.host, client.port
-                )
+                await client.connect()
             except Exception as reconnect_err:
                 logger.error("Reconnect failed: %s", reconnect_err)
 

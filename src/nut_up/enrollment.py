@@ -151,7 +151,7 @@ class EnrollmentManager:
             # Phone home
             HOSTNAME=$(hostname)
             IP=$(hostname -I | awk '{{print $1}}')
-            curl -s -X POST http://{server_host}:8080/api/enroll/confirm \\
+            curl -s -X POST http://{server_host}:{server_port}/api/enroll/confirm \\
                 -H 'Content-Type: application/json' \\
                 -d '{{"key": "{key}", "hostname": "'"$HOSTNAME"'", "ip": "'"$IP"'"}}'
 

@@ -25,7 +25,7 @@ def _parse_quoted(s: str) -> str:
     m = _QUOTED_RE.search(s)
     if m is None:
         return s
-    return m.group(1).replace('\\"', '"').replace("\\\\", "\\")
+    return m.group(1).replace("\\\\", "\\").replace('\\"', '"')
 
 
 class UpsdClient:
@@ -43,8 +43,12 @@ class UpsdClient:
         self._reader: asyncio.StreamReader | None = None
         self._writer: asyncio.StreamWriter | None = None
 
-    async def __aenter__(self) -> Self:
+    async def connect(self) -> None:
+        """Open the TCP connection to upsd."""
         self._reader, self._writer = await asyncio.open_connection(self.host, self.port)
+
+    async def __aenter__(self) -> Self:
+        await self.connect()
         return self
 
     async def __aexit__(self, *exc: object) -> None:

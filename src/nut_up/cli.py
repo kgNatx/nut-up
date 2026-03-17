@@ -65,7 +65,7 @@ def build_parser() -> argparse.ArgumentParser:
     # --- web ---
     web_p = sub.add_parser("web", help="Run the web UI in foreground (dev mode)")
     web_p.add_argument("--host", default="0.0.0.0", help="Listen host (default: 0.0.0.0)")
-    web_p.add_argument("--port", type=int, default=8080, help="Listen port (default: 8080)")
+    web_p.add_argument("--port", type=int, default=3494, help="Listen port (default: 3494)")
     web_p.add_argument(
         "--state-file",
         type=Path,
