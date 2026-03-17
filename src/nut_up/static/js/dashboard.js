@@ -1,10 +1,374 @@
 /* ============================================================
-   dashboard.js — Dashboard page
+   dashboard.js — Dashboard page (redesigned)
+   ============================================================
+
+   XSS: All dynamic values pass through App.escapeHtml() /
+   App.escapeAttr() before interpolation into HTML strings.
    ============================================================ */
 
 (function () {
+
+    // ==========================================================
+    // Canvas chart utility
+    // ==========================================================
+
+    /**
+     * Draw a line chart on a <canvas> element.
+     *
+     * @param {HTMLCanvasElement} canvas
+     * @param {Array<{data: number[], color: string, fill?: boolean}>} datasets
+     * @param {object} [options]
+     * @param {number}  [options.yMin]     - Force Y minimum
+     * @param {number}  [options.yMax]     - Force Y maximum
+     * @param {boolean} [options.grid]     - Show grid lines (default true)
+     * @param {string[]} [options.xLabels] - Labels for the X axis
+     * @param {string}  [options.emptyText] - Text when no data
+     */
+    function drawLineChart(canvas, datasets, options) {
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.scale(dpr, dpr);
+
+        const W = rect.width;
+        const H = rect.height;
+        const pad = { top: 8, right: 12, bottom: 22, left: 36 };
+        const plotW = W - pad.left - pad.right;
+        const plotH = H - pad.top - pad.bottom;
+
+        ctx.clearRect(0, 0, W, H);
+
+        // Check if we have any data
+        const hasData = datasets.some(ds => ds.data && ds.data.length > 1);
+        if (!hasData) {
+            ctx.fillStyle = '#64748b';
+            ctx.font = '12px -apple-system, BlinkMacSystemFont, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(options && options.emptyText || 'Collecting data\u2026', W / 2, H / 2);
+            return;
+        }
+
+        const opts = options || {};
+        const showGrid = opts.grid !== false;
+
+        // Compute Y range
+        let yMin = opts.yMin != null ? opts.yMin : Infinity;
+        let yMax = opts.yMax != null ? opts.yMax : -Infinity;
+        if (yMin === Infinity || yMax === -Infinity) {
+            for (const ds of datasets) {
+                for (const v of ds.data) {
+                    if (v < yMin) yMin = v;
+                    if (v > yMax) yMax = v;
+                }
+            }
+            // Add 5 % padding
+            const range = yMax - yMin || 1;
+            if (opts.yMin == null) yMin = Math.max(0, yMin - range * 0.05);
+            if (opts.yMax == null) yMax = yMax + range * 0.05;
+        }
+
+        const yRange = yMax - yMin || 1;
+
+        // Grid
+        if (showGrid) {
+            ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+            ctx.lineWidth = 1;
+            const gridLines = 4;
+            for (let i = 0; i <= gridLines; i++) {
+                const y = pad.top + (plotH / gridLines) * i;
+                ctx.beginPath();
+                ctx.moveTo(pad.left, y);
+                ctx.lineTo(pad.left + plotW, y);
+                ctx.stroke();
+
+                // Y labels
+                const val = yMax - (yRange / gridLines) * i;
+                ctx.fillStyle = '#64748b';
+                ctx.font = '9px -apple-system, BlinkMacSystemFont, sans-serif';
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(Math.round(val).toString(), pad.left - 6, y);
+            }
+        }
+
+        // X labels
+        if (opts.xLabels && opts.xLabels.length) {
+            ctx.fillStyle = '#64748b';
+            ctx.font = '9px -apple-system, BlinkMacSystemFont, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            const labels = opts.xLabels;
+            for (let i = 0; i < labels.length; i++) {
+                const x = pad.left + (plotW / (labels.length - 1)) * i;
+                ctx.fillText(labels[i], x, pad.top + plotH + 6);
+            }
+        }
+
+        // Draw datasets
+        for (const ds of datasets) {
+            if (!ds.data || ds.data.length < 2) continue;
+            const len = ds.data.length;
+            const stepX = plotW / (len - 1);
+
+            const points = [];
+            for (let i = 0; i < len; i++) {
+                const x = pad.left + stepX * i;
+                const y = pad.top + plotH - ((ds.data[i] - yMin) / yRange) * plotH;
+                points.push({ x, y });
+            }
+
+            // Fill
+            if (ds.fill) {
+                ctx.beginPath();
+                ctx.moveTo(points[0].x, pad.top + plotH);
+                for (const p of points) ctx.lineTo(p.x, p.y);
+                ctx.lineTo(points[points.length - 1].x, pad.top + plotH);
+                ctx.closePath();
+
+                const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + plotH);
+                grad.addColorStop(0, ds.color.replace(')', ', 0.35)').replace('rgb', 'rgba'));
+                grad.addColorStop(1, ds.color.replace(')', ', 0)').replace('rgb', 'rgba'));
+                ctx.fillStyle = grad;
+                ctx.fill();
+            }
+
+            // Line
+            ctx.beginPath();
+            ctx.moveTo(points[0].x, points[0].y);
+            for (let i = 1; i < points.length; i++) {
+                ctx.lineTo(points[i].x, points[i].y);
+            }
+            ctx.strokeStyle = ds.color;
+            ctx.lineWidth = 1.5;
+            ctx.lineJoin = 'round';
+            ctx.stroke();
+        }
+    }
+
+    /**
+     * Draw a mini sparkline on a <canvas> element.
+     * Simpler than drawLineChart — no axes, no grid, just a line.
+     */
+    function drawSparkline(canvas, data, color) {
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.scale(dpr, dpr);
+
+        const W = rect.width;
+        const H = rect.height;
+        const pad = 4;
+
+        ctx.clearRect(0, 0, W, H);
+
+        if (!data || data.length < 2) {
+            ctx.fillStyle = '#64748b';
+            ctx.font = '10px -apple-system, BlinkMacSystemFont, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('Collecting\u2026', W / 2, H / 2);
+            return;
+        }
+
+        let min = Infinity, max = -Infinity;
+        for (const v of data) {
+            if (v < min) min = v;
+            if (v > max) max = v;
+        }
+        // Provide at least a small range to avoid flat-line at edge
+        const range = max - min || 1;
+        min = min - range * 0.1;
+        max = max + range * 0.1;
+        const yRange = max - min;
+
+        const plotW = W - pad * 2;
+        const plotH = H - pad * 2;
+        const stepX = plotW / (data.length - 1);
+
+        // Subtle grid
+        ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 2; i++) {
+            const y = pad + (plotH / 2) * i;
+            ctx.beginPath();
+            ctx.moveTo(pad, y);
+            ctx.lineTo(pad + plotW, y);
+            ctx.stroke();
+        }
+
+        // Fill
+        ctx.beginPath();
+        ctx.moveTo(pad, pad + plotH);
+        for (let i = 0; i < data.length; i++) {
+            const x = pad + stepX * i;
+            const y = pad + plotH - ((data[i] - min) / yRange) * plotH;
+            ctx.lineTo(x, y);
+        }
+        ctx.lineTo(pad + plotW, pad + plotH);
+        ctx.closePath();
+        const grad = ctx.createLinearGradient(0, pad, 0, pad + plotH);
+        grad.addColorStop(0, color.replace(')', ', 0.2)').replace('rgb', 'rgba'));
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        // Line
+        ctx.beginPath();
+        for (let i = 0; i < data.length; i++) {
+            const x = pad + stepX * i;
+            const y = pad + plotH - ((data[i] - min) / yRange) * plotH;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        ctx.lineJoin = 'round';
+        ctx.stroke();
+    }
+
+    // ==========================================================
+    // Health determination
+    // ==========================================================
+
+    function getHealth(vars, status) {
+        const charge = parseFloat(vars['battery.charge']);
+        const load = parseFloat(vars['ups.load']);
+        const runtime = parseFloat(vars['battery.runtime']);
+        const tokens = (status || '').split(/\s+/);
+        const hasOB = tokens.includes('OB');
+        const hasLB = tokens.includes('LB');
+
+        // Critical
+        if (hasOB && hasLB) return 'critical';
+        if (!isNaN(charge) && charge < 20) return 'critical';
+        if (!isNaN(load) && load > 90) return 'critical';
+        if (!isNaN(runtime) && runtime < 300) return 'critical'; // 5 min
+
+        // Warning
+        if (hasOB) return 'warning';
+        if (!isNaN(charge) && charge < 50) return 'warning';
+        if (!isNaN(load) && load > 70) return 'warning';
+        if (!isNaN(runtime) && runtime < 900) return 'warning'; // 15 min
+
+        return 'good';
+    }
+
+    // ==========================================================
+    // Gauge builder (larger 140 px SVG gauge)
+    // ==========================================================
+
+    function bigGauge(value, max, mode) {
+        const esc = App.escapeHtml.bind(App);
+        const numVal = parseFloat(value);
+        const numMax = parseFloat(max);
+        const size = 140;
+        const r = 58;
+        const cx = size / 2;
+        const cy = size / 2;
+        const circumference = 2 * Math.PI * r;
+
+        if (isNaN(numVal) || isNaN(numMax) || numMax === 0) {
+            return '<svg class="dash-gauge-svg" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">' +
+                '<circle class="gauge-track" cx="' + cx + '" cy="' + cy + '" r="' + r + '"/>' +
+                '<g class="gauge-text-group">' +
+                '<text class="dash-gauge-value" x="' + cx + '" y="' + cy + '">--</text>' +
+                '</g></svg>';
+        }
+
+        const pct = Math.min(Math.max(numVal / numMax, 0), 1);
+        const offset = circumference * (1 - pct);
+
+        let color = 'var(--accent)';
+        if (mode === 'battery') {
+            if (pct < 0.3) color = 'var(--danger)';
+            else if (pct < 0.6) color = 'var(--warning)';
+        } else if (mode === 'load') {
+            if (pct > 0.9) color = 'var(--danger)';
+            else if (pct > 0.7) color = 'var(--warning)';
+        }
+
+        return '<svg class="dash-gauge-svg" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">' +
+            '<circle class="gauge-track" cx="' + cx + '" cy="' + cy + '" r="' + r + '"/>' +
+            '<circle class="gauge-fill" cx="' + cx + '" cy="' + cy + '" r="' + r + '" ' +
+            'stroke="' + color + '" ' +
+            'stroke-dasharray="' + circumference.toFixed(2) + '" ' +
+            'stroke-dashoffset="' + offset.toFixed(2) + '"/>' +
+            '<g class="gauge-text-group">' +
+            '<text class="dash-gauge-value" x="' + cx + '" y="' + (cy - 4) + '">' + esc(Math.round(numVal)) + '</text>' +
+            '<text class="dash-gauge-unit" x="' + cx + '" y="' + (cy + 16) + '">%</text>' +
+            '</g></svg>';
+    }
+
+    // ==========================================================
+    // Runtime hero formatting
+    // ==========================================================
+
+    function formatRuntimeHero(seconds) {
+        const s = parseInt(seconds, 10);
+        if (isNaN(s) || s < 0) return { text: '--', sub: '' };
+        const h = Math.floor(s / 3600);
+        const m = Math.floor((s % 3600) / 60);
+        if (h > 0) return { text: h + 'h ' + m + 'm', sub: '' };
+        return { text: m + 'm', sub: '' };
+    }
+
+    function runtimeColor(seconds) {
+        const s = parseInt(seconds, 10);
+        if (isNaN(s) || s < 0) return 'var(--text-muted)';
+        if (s < 600) return 'var(--danger)';      // <10 min
+        if (s < 1800) return 'var(--warning)';     // <30 min
+        return 'var(--accent)';
+    }
+
+    function runtimePct(seconds) {
+        const s = parseInt(seconds, 10);
+        if (isNaN(s) || s < 0) return 0;
+        // Max 2 hours = 7200s
+        return Math.min(s / 7200, 1) * 100;
+    }
+
+    // ==========================================================
+    // Load wattage helper
+    // ==========================================================
+
+    function loadWattageLabel(vars) {
+        const esc = App.escapeHtml.bind(App);
+        const load = parseFloat(vars['ups.load']);
+        const nominal = parseFloat(vars['ups.realpower.nominal']) || parseFloat(vars['ups.power.nominal']);
+
+        if (isNaN(load)) return '<span class="dash-load-watts">--%</span>';
+
+        if (!isNaN(nominal) && nominal > 0) {
+            const watts = Math.round((load / 100) * nominal);
+            return '<span class="dash-load-watts">' + esc(watts) + 'W of ' + esc(Math.round(nominal)) + 'W</span>';
+        }
+        return '<span class="dash-load-watts">' + esc(Math.round(load)) + '%</span>';
+    }
+
+    // ==========================================================
+    // Build X labels for chart (time axis)
+    // ==========================================================
+
+    function timeXLabels() {
+        return ['5m ago', '4m', '3m', '2m', '1m', 'now'];
+    }
+
+    // ==========================================================
+    // Render
+    // ==========================================================
+
     function render() {
         const esc = App.escapeHtml.bind(App);
+        const escAttr = App.escapeAttr.bind(App);
         const ups = App.state.ups;
         const names = Object.keys(ups);
 
@@ -12,7 +376,7 @@
             return '<div class="page-header"><h1 class="page-title">Dashboard</h1></div>' +
                 '<div class="empty-state">' +
                 '<div class="spinner"></div>' +
-                '<div class="empty-state-text">Waiting for data from upsd...</div>' +
+                '<div class="empty-state-text">Waiting for data from upsd\u2026</div>' +
                 '</div>';
         }
 
@@ -32,74 +396,164 @@
             const inputV = vars['input.voltage'];
             const outputV = vars['output.voltage'];
             const batteryV = vars['battery.voltage'];
+            const serial = vars['ups.serial'] || vars['device.serial'];
 
-            html += '<div class="card section">';
-            html += '<div class="card-header">';
-            html += '<div>';
-            html += '<div class="card-title">' + esc(u.description || name) + '</div>';
+            const health = getHealth(vars, status);
+            const healthClass = 'dash-card-' + health;
+
+            // --- Card wrapper ---
+            html += '<div class="dash-card ' + healthClass + ' section">';
+
+            // --- Header bar ---
+            html += '<div class="dash-header">';
+            html += '<div class="dash-header-info">';
+            html += '<span class="dash-ups-name">' + esc(u.description || name) + '</span>';
             if (mfr || model) {
-                html += '<div class="card-subtitle">' + esc(mfr) + (mfr && model ? ' ' : '') + esc(model) + '</div>';
+                html += '<span class="dash-ups-model">' + esc(mfr) + (mfr && model ? ' ' : '') + esc(model) + '</span>';
             }
             html += '</div>';
             html += App.statusBadge(status);
             html += '</div>';
 
-            // Primary gauges row
-            html += '<div class="grid-4">';
+            // --- Top metrics row (3 cols) ---
+            html += '<div class="dash-metrics-row">';
 
-            // Battery gauge + battery graphic
-            html += '<div class="stat-card">';
-            html += App.gaugeHtml(batteryCharge, 100, 'Battery', '%', 'battery');
-            html += '<div style="margin-top:8px">' + App.batteryHtml(batteryCharge) + '</div>';
+            // 1. Battery
+            html += '<div class="dash-metric">';
+            html += '<div class="dash-metric-label">Battery</div>';
+            html += '<div class="dash-gauge-wrap">';
+            html += bigGauge(batteryCharge, 100, 'battery');
+            html += '</div>';
+            html += '<div class="dash-battery-graphic">' + App.batteryHtml(batteryCharge) + '</div>';
             html += '</div>';
 
-            // Load gauge
-            html += '<div class="stat-card">';
-            html += App.gaugeHtml(load, 100, 'Load', '%', 'load');
+            // 2. Load
+            html += '<div class="dash-metric">';
+            html += '<div class="dash-metric-label">Load</div>';
+            html += '<div class="dash-gauge-wrap">';
+            html += bigGauge(load, 100, 'load');
+            html += '</div>';
+            html += loadWattageLabel(vars);
             html += '</div>';
 
-            // Runtime
-            html += '<div class="stat-card">';
-            html += '<div class="stat-value">' + esc(App.formatRuntime(batteryRuntime)) + '</div>';
-            html += '<div class="stat-label">Runtime</div>';
+            // 3. Runtime (hero)
+            var rt = formatRuntimeHero(batteryRuntime);
+            var rtColor = runtimeColor(batteryRuntime);
+            var rtPct = runtimePct(batteryRuntime);
+            html += '<div class="dash-metric dash-runtime-hero">';
+            html += '<div class="dash-metric-label">Runtime</div>';
+            html += '<div class="dash-runtime-value" style="color:' + rtColor + '">' + esc(rt.text) + '</div>';
+            html += '<div class="dash-runtime-bar-track">';
+            html += '<div class="dash-runtime-bar-fill" style="width:' + rtPct.toFixed(1) + '%;background:' + rtColor + '"></div>';
+            html += '</div>';
+            html += '<div class="dash-runtime-sub">of 2h max</div>';
             html += '</div>';
 
-            // Temperature
-            html += '<div class="stat-card">';
-            if (temp != null) {
-                html += '<div class="stat-value">' + esc(temp) + '<span style="font-size:0.6em;color:var(--text-secondary)">&deg;C</span></div>';
-            } else {
-                html += '<div class="stat-value" style="color:var(--text-muted)">--</div>';
-            }
-            html += '<div class="stat-label">Temperature</div>';
+            html += '</div>'; // end dash-metrics-row
+
+            // --- Voltage row (2 cols) ---
+            html += '<div class="dash-voltage-row">';
+
+            html += '<div class="dash-voltage-card">';
+            html += '<div class="dash-voltage-header">';
+            html += '<span class="dash-voltage-label">Input Voltage</span>';
+            html += '<span class="dash-voltage-value">' + esc(inputV != null ? inputV : '--') + '<small>V</small></span>';
+            html += '</div>';
+            html += '<canvas class="dash-sparkline" data-ups="' + escAttr(name) + '" data-metric="input_voltage"></canvas>';
             html += '</div>';
 
-            html += '</div>'; // end grid-4
-
-            // Voltage row
-            html += '<div class="grid-3 mt-16">';
-
-            html += '<div class="stat-card">';
-            html += '<div class="stat-value">' + esc(inputV != null ? inputV : '--') + '<span style="font-size:0.6em;color:var(--text-secondary)">V</span></div>';
-            html += '<div class="stat-label">Input Voltage</div>';
+            html += '<div class="dash-voltage-card">';
+            html += '<div class="dash-voltage-header">';
+            html += '<span class="dash-voltage-label">Output Voltage</span>';
+            html += '<span class="dash-voltage-value">' + esc(outputV != null ? outputV : '--') + '<small>V</small></span>';
+            html += '</div>';
+            html += '<canvas class="dash-sparkline" data-ups="' + escAttr(name) + '" data-metric="output_voltage"></canvas>';
             html += '</div>';
 
-            html += '<div class="stat-card">';
-            html += '<div class="stat-value">' + esc(outputV != null ? outputV : '--') + '<span style="font-size:0.6em;color:var(--text-secondary)">V</span></div>';
-            html += '<div class="stat-label">Output Voltage</div>';
+            html += '</div>'; // end dash-voltage-row
+
+            // --- Load history chart (full width) ---
+            html += '<div class="dash-chart-section">';
+            html += '<div class="dash-chart-label">Load History</div>';
+            html += '<canvas class="dash-load-chart" data-ups="' + escAttr(name) + '"></canvas>';
             html += '</div>';
 
-            html += '<div class="stat-card">';
-            html += '<div class="stat-value">' + esc(batteryV != null ? batteryV : '--') + '<span style="font-size:0.6em;color:var(--text-secondary)">V</span></div>';
-            html += '<div class="stat-label">Battery Voltage</div>';
+            // --- Bottom info bar ---
+            html += '<div class="dash-info-bar">';
+            html += '<div class="dash-info-item"><span class="dash-info-label">Battery</span><span class="dash-info-value">' + esc(batteryV != null ? batteryV + 'V' : '--') + '</span></div>';
+            html += '<div class="dash-info-item"><span class="dash-info-label">Temp</span><span class="dash-info-value">' + esc(temp != null ? temp + '\u00b0C' : '--') + '</span></div>';
+            html += '<div class="dash-info-item"><span class="dash-info-label">Serial</span><span class="dash-info-value">' + esc(serial || '--') + '</span></div>';
             html += '</div>';
 
-            html += '</div>'; // end grid-3
-            html += '</div>'; // end card
+            html += '</div>'; // end dash-card
         }
 
         return html;
     }
 
-    App.registerPage('dashboard', render);
+    // ==========================================================
+    // Init — called once after render; draws canvases
+    // ==========================================================
+
+    function init() {
+        drawAllCanvases();
+    }
+
+    function drawAllCanvases() {
+        // Sparklines
+        document.querySelectorAll('.dash-sparkline').forEach(function (canvas) {
+            var upsName = canvas.getAttribute('data-ups');
+            var metric = canvas.getAttribute('data-metric');
+            if (!upsName || !metric) return;
+            var hist = App.getHistory(upsName);
+            var data = hist[metric] || [];
+            drawSparkline(canvas, data, 'rgb(34, 211, 167)');
+        });
+
+        // Load history charts
+        document.querySelectorAll('.dash-load-chart').forEach(function (canvas) {
+            var upsName = canvas.getAttribute('data-ups');
+            if (!upsName) return;
+            var hist = App.getHistory(upsName);
+            drawLineChart(canvas, [
+                { data: hist.load, color: 'rgb(34, 211, 167)', fill: true }
+            ], {
+                yMin: 0,
+                yMax: 100,
+                grid: true,
+                xLabels: timeXLabels(),
+                emptyText: 'Collecting load data\u2026'
+            });
+        });
+    }
+
+    // ==========================================================
+    // Register — use init to draw canvases after each render.
+    // Because refresh() doesn't call init, we hook into refresh
+    // to redraw canvases via a MutationObserver fallback: we use
+    // requestAnimationFrame after render.
+    // ==========================================================
+
+    // Patch: we need canvases redrawn on every refresh.  The page
+    // system calls init only on first navigation, and refresh()
+    // only calls render().  So we override refresh to also draw.
+    var _origRefresh = null;
+
+    function patchRefresh() {
+        if (_origRefresh) return; // already patched
+        _origRefresh = App.refresh.bind(App);
+        App.refresh = function () {
+            _origRefresh();
+            // Only draw canvases if dashboard is current page
+            if (App._currentPage === 'dashboard') {
+                // Use rAF to let the DOM settle after innerHTML
+                requestAnimationFrame(drawAllCanvases);
+            }
+        };
+    }
+
+    App.registerPage('dashboard', render, function () {
+        patchRefresh();
+        init();
+    });
 })();
