@@ -108,8 +108,8 @@ def test_write_upsmon_conf_primary(tmp_path: Path) -> None:
     assert "POWERDOWNFLAG /etc/killpower" in content
     assert "POLLFREQ 5" in content
     assert "DEADTIME 15" in content
-    assert 'NOTIFYMSG ONLINE' in content
-    assert 'NOTIFYFLAG ONBATT' in content
+    assert "NOTIFYMSG ONLINE" in content
+    assert "NOTIFYFLAG ONBATT" in content
 
 
 def test_write_upsmon_conf_secondary(tmp_path: Path) -> None:

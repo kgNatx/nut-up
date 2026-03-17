@@ -99,9 +99,7 @@ class NUTConfigWriter:
             user = mon["user"]
             password = mon["password"]
             role = mon["role"]
-            lines.append(
-                f'MONITOR {ups_name}@{host}:{port} {powervalue} {user} {password} {role}'
-            )
+            lines.append(f"MONITOR {ups_name}@{host}:{port} {powervalue} {user} {password} {role}")
 
         lines.append("")
         lines.append("MINSUPPLIES 1")

@@ -50,6 +50,7 @@ def get_latest_ups_data() -> dict:
 # Background UPS polling
 # ---------------------------------------------------------------------------
 
+
 async def _poll_ups(client: UpsdClient, manager: ConnectionManager) -> None:
     """Poll all UPS devices every 2 seconds and broadcast via WebSocket."""
     global _latest_ups_data
@@ -101,6 +102,7 @@ async def _poll_ups(client: UpsdClient, manager: ConnectionManager) -> None:
 # ---------------------------------------------------------------------------
 # Lifespan
 # ---------------------------------------------------------------------------
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

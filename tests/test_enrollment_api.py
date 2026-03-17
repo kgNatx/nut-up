@@ -16,16 +16,20 @@ from nut_up.ws import ConnectionManager
 def env_setup(tmp_path, monkeypatch):
     """Seed state.json with server config."""
     state_file = tmp_path / "state.json"
-    state_file.write_text(json.dumps({
-        "keys": {},
-        "clients": {},
-        "server": {
-            "mode": "netserver",
-            "ups_name": "myups",
-            "admin_password": "testpass",
-            "monitor_password": "monpass",
-        },
-    }))
+    state_file.write_text(
+        json.dumps(
+            {
+                "keys": {},
+                "clients": {},
+                "server": {
+                    "mode": "netserver",
+                    "ups_name": "myups",
+                    "admin_password": "testpass",
+                    "monitor_password": "monpass",
+                },
+            }
+        )
+    )
     monkeypatch.setenv("NUT_UP_STATE_FILE", str(state_file))
     monkeypatch.setenv("NUT_UP_UPSD_HOST", "127.0.0.1")
     monkeypatch.setenv("NUT_UP_UPSD_PORT", "0")

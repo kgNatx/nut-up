@@ -29,9 +29,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog="nut-up",
         description="A modern wrapper around NUT -- painless setup, beautiful monitoring.",
     )
-    parser.add_argument(
-        "--version", action="version", version=f"nut-up {__version__}"
-    )
+    parser.add_argument("--version", action="version", version=f"nut-up {__version__}")
 
     sub = parser.add_subparsers(dest="command")
 
@@ -74,12 +72,8 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_STATE_FILE,
         help="Path to nut-up state file",
     )
-    web_p.add_argument(
-        "--upsd-host", default="localhost", help="upsd host (default: localhost)"
-    )
-    web_p.add_argument(
-        "--upsd-port", type=int, default=3493, help="upsd port (default: 3493)"
-    )
+    web_p.add_argument("--upsd-host", default="localhost", help="upsd host (default: localhost)")
+    web_p.add_argument("--upsd-port", type=int, default=3493, help="upsd port (default: 3493)")
 
     return parser
 
@@ -152,13 +146,17 @@ def cmd_server(args: argparse.Namespace) -> None:
 
     # 6. Save server info to state file
     state = StateManager(args.state_file)
-    state.update(lambda data: data["server"].update({
-        "mode": "netserver",
-        "ups_name": ups_name,
-        "conf_dir": conf_dir,
-        "admin_password": admin_password,
-        "monitor_password": monitor_password,
-    }))
+    state.update(
+        lambda data: data["server"].update(
+            {
+                "mode": "netserver",
+                "ups_name": ups_name,
+                "conf_dir": conf_dir,
+                "admin_password": admin_password,
+                "monitor_password": monitor_password,
+            }
+        )
+    )
     print(f"State saved to: {args.state_file}\n")
 
     # 7. Start services unless --no-start
@@ -175,8 +173,8 @@ def cmd_server(args: argparse.Namespace) -> None:
     print("=== Setup complete ===")
     print(f"  UPS name:   {ups_name}")
     print(f"  Driver:     {device['driver']}")
-    print(f"  Mode:       netserver")
-    print(f"  Listening:  0.0.0.0:3493")
+    print("  Mode:       netserver")
+    print("  Listening:  0.0.0.0:3493")
     print(f"  Config dir: {conf_dir}")
     print(f"  State file: {args.state_file}")
 
@@ -216,7 +214,9 @@ def cmd_web(args: argparse.Namespace) -> None:
     try:
         import uvicorn
     except ImportError:
-        print("uvicorn is not installed. Install with: pip install uvicorn[standard]", file=sys.stderr)
+        print(
+            "uvicorn is not installed. Install with: pip install uvicorn[standard]", file=sys.stderr
+        )
         sys.exit(1)
 
     print(f"Starting nut-up web UI on {args.host}:{args.port}...")

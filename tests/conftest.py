@@ -107,9 +107,7 @@ class MockUpsd:
             except (ConnectionError, OSError):
                 pass
 
-    def _process_command(
-        self, line: str, client_id: int, username_set: bool
-    ) -> str | list[str]:
+    def _process_command(self, line: str, client_id: int, username_set: bool) -> str | list[str]:
         cmd_parts = line.split()
         cmd = cmd_parts[0] if cmd_parts else ""
 

@@ -57,13 +57,15 @@ class EnrollmentManager:
         result = []
         for key, info in keys.items():
             expires_at = datetime.fromisoformat(info["expires_at"])
-            result.append({
-                "key": key,
-                "label": info["label"],
-                "created_at": info["created_at"],
-                "expires_at": info["expires_at"],
-                "expired": now >= expires_at,
-            })
+            result.append(
+                {
+                    "key": key,
+                    "label": info["label"],
+                    "created_at": info["created_at"],
+                    "expires_at": info["expires_at"],
+                    "expired": now >= expires_at,
+                }
+            )
         return result
 
     def record_enrollment(self, key: str, hostname: str, ip: str) -> None:
