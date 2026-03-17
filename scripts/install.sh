@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_URL="https://github.com/kgNatx/nut-up"
+REPO="kgNatx/nut-up"
+BRANCH="main"
+ARCHIVE_URL="https://github.com/${REPO}/archive/refs/heads/${BRANCH}.tar.gz"
 INSTALL_DIR="/opt/nut-up"
 
 # --- Check root ---
@@ -10,42 +12,68 @@ if [[ "${EUID}" -ne 0 ]]; then
     exit 1
 fi
 
-# --- Check Python 3 ---
+# --- Check Python 3 + venv ---
 if ! command -v python3 &>/dev/null; then
-    echo "Error: python3 is not installed." >&2
-    echo "Install it with:  apt install python3 python3-venv  (Debian/Ubuntu)" >&2
-    echo "                   dnf install python3              (Fedora/RHEL)" >&2
-    exit 1
+    echo "Python 3 not found. Installing..."
+    apt-get update -qq && apt-get install -y -qq python3 python3-venv
 fi
 
+# Ensure python3-venv is available (some distros split it out)
+if ! python3 -m venv --help &>/dev/null 2>&1; then
+    echo "python3-venv not found. Installing..."
+    apt-get update -qq && apt-get install -y -qq python3-venv
+fi
+
+echo ""
 echo "==> Installing nut-up to ${INSTALL_DIR} ..."
 
-# --- Clone or update repo ---
-if [[ -d "${INSTALL_DIR}/.git" ]]; then
-    echo "==> Existing installation found — pulling latest ..."
-    git -C "${INSTALL_DIR}" pull --ff-only
-else
-    echo "==> Cloning repository ..."
-    mkdir -p "${INSTALL_DIR}"
-    git clone "${REPO_URL}" "${INSTALL_DIR}"
+# --- Download and extract ---
+TMP_DIR=$(mktemp -d)
+trap 'rm -rf "${TMP_DIR}"' EXIT
+
+echo "==> Downloading nut-up..."
+curl -sL "${ARCHIVE_URL}" -o "${TMP_DIR}/nut-up.tar.gz"
+
+echo "==> Extracting..."
+tar -xzf "${TMP_DIR}/nut-up.tar.gz" -C "${TMP_DIR}"
+
+# GitHub archives extract to repo-branch/ directory
+SRC_DIR="${TMP_DIR}/nut-up-${BRANCH}"
+
+# --- Install to /opt/nut-up ---
+if [[ -d "${INSTALL_DIR}" ]]; then
+    echo "==> Existing installation found — upgrading..."
+    # Preserve state file if it exists
+    if [[ -f "${INSTALL_DIR}/state.json" ]]; then
+        cp "${INSTALL_DIR}/state.json" "${TMP_DIR}/state.json.bak"
+    fi
+    rm -rf "${INSTALL_DIR}"
+fi
+
+mkdir -p "${INSTALL_DIR}"
+cp -r "${SRC_DIR}/"* "${INSTALL_DIR}/"
+
+# Restore state file
+if [[ -f "${TMP_DIR}/state.json.bak" ]]; then
+    cp "${TMP_DIR}/state.json.bak" "${INSTALL_DIR}/state.json"
 fi
 
 # --- Create venv and install ---
-echo "==> Creating virtual environment ..."
+echo "==> Creating virtual environment..."
 python3 -m venv "${INSTALL_DIR}/venv"
 
-echo "==> Installing nut-up into venv ..."
-"${INSTALL_DIR}/venv/bin/pip" install --upgrade pip
-"${INSTALL_DIR}/venv/bin/pip" install "${INSTALL_DIR}"
+echo "==> Installing dependencies..."
+"${INSTALL_DIR}/venv/bin/pip" install --upgrade pip -q
+"${INSTALL_DIR}/venv/bin/pip" install "${INSTALL_DIR}" -q
 
 # --- Symlink CLI ---
-echo "==> Symlinking CLI to /usr/local/bin/nut-up ..."
 ln -sf "${INSTALL_DIR}/venv/bin/nut-up" /usr/local/bin/nut-up
+echo "==> Installed nut-up CLI to /usr/local/bin/nut-up"
 
 # --- Install systemd unit ---
-echo "==> Installing systemd service ..."
 cp "${INSTALL_DIR}/scripts/nut-up.service" /etc/systemd/system/nut-up.service
 systemctl daemon-reload
+echo "==> Installed systemd service"
 
 echo ""
 echo "============================================"
@@ -55,9 +83,6 @@ echo ""
 echo "Next steps:"
 echo ""
 echo "  1. Connect your UPS via USB"
-echo "  2. Run the server setup wizard:"
-echo "       sudo nut-up server"
-echo "  3. Start the web UI:"
-echo "       sudo systemctl enable --now nut-up"
-echo "  4. Open http://$(hostname -I | awk '{print $1}'):3494"
+echo "  2. Run:  sudo nut-up server"
+echo "  3. Open: http://$(hostname -I | awk '{print $1}'):3494"
 echo ""
