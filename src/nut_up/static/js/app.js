@@ -20,6 +20,66 @@ const App = {
     _wsReconnectTimer: null,
 
     // ----------------------------------------------------------
+    // History buffer — stores the last 150 data points per UPS
+    // (approximately 5 minutes at 2-second polling intervals).
+    // ----------------------------------------------------------
+    _history: {},
+    _HISTORY_MAX: 150,
+
+    /**
+     * Push current UPS values into the history ring buffer.
+     * Called on every `ups_data` WebSocket message.
+     */
+    _pushHistory(upsData) {
+        const now = Date.now();
+        for (const name of Object.keys(upsData)) {
+            const u = upsData[name];
+            const vars = u.variables || {};
+
+            if (!this._history[name]) {
+                this._history[name] = {
+                    timestamps: [],
+                    battery_charge: [],
+                    load: [],
+                    input_voltage: [],
+                    output_voltage: [],
+                };
+            }
+
+            const h = this._history[name];
+            h.timestamps.push(now);
+            h.battery_charge.push(parseFloat(vars['battery.charge']) || 0);
+            h.load.push(parseFloat(vars['ups.load']) || 0);
+            h.input_voltage.push(parseFloat(vars['input.voltage']) || 0);
+            h.output_voltage.push(parseFloat(vars['output.voltage']) || 0);
+
+            // Cap at _HISTORY_MAX entries
+            if (h.timestamps.length > this._HISTORY_MAX) {
+                const excess = h.timestamps.length - this._HISTORY_MAX;
+                h.timestamps.splice(0, excess);
+                h.battery_charge.splice(0, excess);
+                h.load.splice(0, excess);
+                h.input_voltage.splice(0, excess);
+                h.output_voltage.splice(0, excess);
+            }
+        }
+    },
+
+    /**
+     * Retrieve the history buffer for a given UPS name.
+     * Returns a copy-safe reference (callers should treat as read-only).
+     */
+    getHistory(upsName) {
+        return this._history[upsName] || {
+            timestamps: [],
+            battery_charge: [],
+            load: [],
+            input_voltage: [],
+            output_voltage: [],
+        };
+    },
+
+    // ----------------------------------------------------------
     // Security: HTML escaping — prevents XSS by encoding all
     // HTML-special characters in dynamic values.
     // ----------------------------------------------------------
@@ -150,7 +210,9 @@ const App = {
             try {
                 const msg = JSON.parse(event.data);
                 if (msg.type === 'ups_data') {
-                    this.state.ups = msg.data || {};
+                    const data = msg.data || {};
+                    this.state.ups = data;
+                    this._pushHistory(data);
                     this.refresh();
                 } else if (msg.type === 'error') {
                     this.setConnectionStatus('disconnected');
