@@ -46,6 +46,9 @@ class NUTConfigWriter:
 
         Each dict should have: name, driver, port, desc, and optionally extra (dict).
         """
+        # Keys from nut-scanner that are metadata, not driver config
+        _SKIP_KEYS = {"bus", "device", "busport", "bcdDevice", "product", "vendor", "serial"}
+
         lines: list[str] = []
         for ups in ups_list:
             lines.append(f"[{ups['name']}]")
@@ -53,7 +56,12 @@ class NUTConfigWriter:
             lines.append(f"    port = {ups['port']}")
             lines.append(f'    desc = "{ups["desc"]}"')
             for key, value in ups.get("extra", {}).items():
-                lines.append(f'    {key} = "{value}"')
+                # Skip scanner metadata and malformed lines
+                if key in _SKIP_KEYS:
+                    continue
+                if "###" in key or "###" in str(value):
+                    continue
+                lines.append(f"    {key} = {value}")
             lines.append("")
         return self._write("ups.conf", "\n".join(lines))
 

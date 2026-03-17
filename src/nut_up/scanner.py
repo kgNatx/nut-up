@@ -46,6 +46,10 @@ def parse_nut_scanner_output(output: str) -> list[dict[str, Any]]:
         if current is None:
             continue
 
+        # Skip malformed lines from nut-scanner (e.g. ###NOTMATCHED-YET###)
+        if "###" in line:
+            continue
+
         kv_match = kv_re.match(line)
         if kv_match:
             key, value = kv_match.group(1), kv_match.group(2)

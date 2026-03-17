@@ -59,8 +59,8 @@ def test_write_ups_conf_with_extras(tmp_path: Path) -> None:
     ]
     writer.write_ups_conf(ups_list)
     content = (tmp_path / "ups.conf").read_text()
-    assert 'vendorid = "051d"' in content
-    assert 'pollinterval = "15"' in content
+    assert "vendorid = 051d" in content
+    assert "pollinterval = 15" in content
 
 
 def test_write_upsd_conf_listen(tmp_path: Path) -> None:
