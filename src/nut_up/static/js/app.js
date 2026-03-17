@@ -173,6 +173,13 @@ const App = {
     },
 
     refresh() {
+        // Skip re-render if user is focused on an input — avoids destroying
+        // their cursor position, typed text, and focus state.
+        const active = document.activeElement;
+        if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT')) {
+            return;
+        }
+
         // Re-render current page WITHOUT calling init again
         if (this._currentPage && this._pages[this._currentPage]) {
             const content = document.getElementById('content');
