@@ -445,50 +445,49 @@
             var rtMax = parseFloat(vars['battery.runtime.nominal']) || 7200;
             var rtMaxFormatted = formatRuntimeHero(rtMax).text;
 
-            // 1. Battery
+            // 1. Battery — ring with %, battery icon below
             html += '<div class="dash-metric">';
             html += '<div class="dash-metric-title">BATTERY</div>';
             html += '<div class="dash-ring-wrap">';
-            html += ringGauge(batteryCharge, 100, 'battery', (isNaN(parseFloat(batteryCharge)) ? '--' : Math.round(parseFloat(batteryCharge)) + '%'));
+            html += ringGauge(batteryCharge, 100, 'battery',
+                isNaN(parseFloat(batteryCharge)) ? '--' : Math.round(parseFloat(batteryCharge)) + '%');
             html += '</div>';
-            html += '<div class="dash-metric-sub">' + App.batteryHtml(batteryCharge) + '</div>';
+            html += '<div class="dash-metric-icon-wrap">' + App.batteryHtml(batteryCharge) + '</div>';
             html += '</div>';
 
-            // 2. Load
+            // 2. Load — ring with watts or %, "of NW" as unit, plug icon below
+            var loadCenter, loadUnit;
+            if (loadWatts !== null) {
+                loadCenter = loadWatts + 'W';
+                loadUnit = 'of ' + Math.round(nominalW) + 'W';
+            } else {
+                loadCenter = isNaN(loadPct) ? '--' : Math.round(loadPct) + '%';
+                loadUnit = null;
+            }
             html += '<div class="dash-metric">';
             html += '<div class="dash-metric-title">LOAD</div>';
             html += '<div class="dash-ring-wrap">';
-            if (loadWatts !== null) {
-                html += ringGauge(load, 100, 'load', loadWatts + 'W', Math.round(loadPct) + '%');
-            } else {
-                html += ringGauge(load, 100, 'load', (isNaN(loadPct) ? '--' : Math.round(loadPct) + '%'));
-            }
+            html += ringGauge(load, 100, 'load', loadCenter, loadUnit);
             html += '</div>';
-            html += '<div class="dash-metric-sub">';
-            if (loadWatts !== null) {
-                html += '<span class="dash-sub-text">of ' + esc(Math.round(nominalW)) + 'W</span>';
-            }
-            // Power plug icon for visual weight
-            html += '<svg class="dash-metric-icon" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">';
-            html += '<path d="M12 2v6M8 2v6M16 2v6"/>';
-            html += '<rect x="6" y="8" width="12" height="6" rx="1"/>';
-            html += '<path d="M10 14v3a2 2 0 0 0 4 0v-3"/>';
-            html += '<line x1="12" y1="19" x2="12" y2="22"/>';
+            html += '<div class="dash-metric-icon-wrap">';
+            html += '<svg viewBox="0 0 64 28" width="64" height="28" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">';
+            html += '<path d="M20 2v8M28 2v8M36 2v8"/>';
+            html += '<rect x="14" y="10" width="28" height="10" rx="2"/>';
+            html += '<path d="M26 20v4a2 2 0 0 0 4 0v-4"/>';
             html += '</svg>';
             html += '</div>';
             html += '</div>';
 
-            // 3. Runtime (ring gauge)
+            // 3. Runtime — ring with time, "of Xh" as unit, clock icon below
             html += '<div class="dash-metric">';
             html += '<div class="dash-metric-title">RUNTIME</div>';
             html += '<div class="dash-ring-wrap">';
-            html += ringGauge(batteryRuntime, rtMax, 'runtime', rt.text);
+            html += ringGauge(batteryRuntime, rtMax, 'runtime', rt.text, 'of ' + rtMaxFormatted);
             html += '</div>';
-            html += '<div class="dash-metric-sub"><span class="dash-sub-text">of ' + esc(rtMaxFormatted) + '</span>';
-            // Clock icon for visual weight
-            html += '<svg class="dash-metric-icon" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">';
-            html += '<circle cx="12" cy="12" r="10"/>';
-            html += '<polyline points="12 6 12 12 16 14"/>';
+            html += '<div class="dash-metric-icon-wrap">';
+            html += '<svg viewBox="0 0 64 28" width="64" height="28" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">';
+            html += '<circle cx="32" cy="14" r="12"/>';
+            html += '<polyline points="32 6 32 14 38 17"/>';
             html += '</svg>';
             html += '</div>';
             html += '</div>';

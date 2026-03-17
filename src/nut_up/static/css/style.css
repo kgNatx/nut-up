@@ -835,6 +835,7 @@ select.input {
 
 .dash-ring-svg .ring-text-group {
     transform: rotate(90deg);
+    transform-origin: 75px 75px;
 }
 
 .ring-center {
@@ -854,26 +855,14 @@ select.input {
     dominant-baseline: hanging;
 }
 
-/* Below-ring content area */
+/* Below-ring icon area — same height for all three metrics */
 
-.dash-metric-sub {
+.dash-metric-icon-wrap {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    gap: 6px;
-    min-height: 48px;
-}
-
-.dash-sub-text {
-    font-size: 13px;
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-    color: var(--text-secondary);
-}
-
-.dash-metric-icon {
-    color: var(--text-muted);
-    opacity: 0.6;
+    justify-content: center;
+    height: 32px;
+    opacity: 0.5;
 }
 
 /* --- Voltage row --- */
