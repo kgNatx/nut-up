@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import os
 import secrets
+import subprocess
 import sys
 from pathlib import Path
 
@@ -162,7 +163,12 @@ def cmd_server(args: argparse.Namespace) -> None:
     )
     print(f"State saved to: {args.state_file}\n")
 
-    # 7. Start services unless --no-start
+    # 7. Trigger udev so NUT's rules grant USB device access to the 'nut' group
+    print("Applying USB device permissions...")
+    subprocess.run(["udevadm", "trigger"], capture_output=True)
+    subprocess.run(["udevadm", "settle"], capture_output=True)
+
+    # 8. Start services unless --no-start
     if not args.no_start:
         print("Starting NUT services...")
         try:
@@ -180,7 +186,7 @@ def cmd_server(args: argparse.Namespace) -> None:
             print(f"Failed to start web UI: {e}", file=sys.stderr)
             print("You can start it manually with: systemctl enable --now nut-up")
 
-    # 8. Print summary and next steps
+    # 9. Print summary and next steps
     import socket
 
     try:
