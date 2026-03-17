@@ -82,6 +82,53 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _fix_usb_permissions(device: dict) -> None:
+    """Ensure the NUT user can access the UPS USB device.
+
+    1. Ensure the 'nut' group exists
+    2. Trigger udev rules so NUT's rule sets GROUP="nut"
+    3. Verify the device is now accessible — if not, chmod/chgrp as fallback
+    """
+    import grp
+
+    # Ensure 'nut' user and group exist (NUT package should create these)
+    try:
+        grp.getgrnam("nut")
+    except KeyError:
+        print("  WARNING: 'nut' group not found — NUT may not be installed correctly")
+        return
+
+    # Trigger udev to apply NUT's USB rules
+    subprocess.run(["udevadm", "trigger"], capture_output=True)
+    subprocess.run(["udevadm", "settle"], capture_output=True)
+
+    # Find the USB device node
+    bus = device.get("extra", {}).get("bus")
+    dev_num = device.get("extra", {}).get("device")
+    if not bus or not dev_num:
+        # Can't verify without bus/device info, udev trigger is our best effort
+        print("  udev rules applied.")
+        return
+
+    dev_path = f"/dev/bus/usb/{bus}/{dev_num}"
+    try:
+        st = os.stat(dev_path)
+        device_group = grp.getgrgid(st.st_gid).gr_name
+        if device_group == "nut":
+            print(f"  USB device {dev_path} is accessible by 'nut' group.")
+            return
+
+        # udev rule didn't apply — fix it manually
+        print(f"  USB device {dev_path} has group '{device_group}', fixing...")
+        subprocess.run(["chgrp", "nut", dev_path], check=True, capture_output=True)
+        subprocess.run(["chmod", "g+rw", dev_path], check=True, capture_output=True)
+        print(f"  Fixed: {dev_path} now accessible by 'nut' group.")
+    except FileNotFoundError:
+        print(f"  WARNING: Device {dev_path} not found — UPS may have been unplugged")
+    except Exception as e:
+        print(f"  WARNING: Could not verify USB permissions: {e}")
+
+
 def cmd_server(args: argparse.Namespace) -> None:
     """Run the server setup wizard."""
     print("=== nut-up server setup ===\n")
@@ -163,10 +210,9 @@ def cmd_server(args: argparse.Namespace) -> None:
     )
     print(f"State saved to: {args.state_file}\n")
 
-    # 7. Trigger udev so NUT's rules grant USB device access to the 'nut' group
-    print("Applying USB device permissions...")
-    subprocess.run(["udevadm", "trigger"], capture_output=True)
-    subprocess.run(["udevadm", "settle"], capture_output=True)
+    # 7. Ensure USB device permissions are correct for the 'nut' user
+    print("Fixing USB device permissions...")
+    _fix_usb_permissions(device)
 
     # 8. Start services unless --no-start
     if not args.no_start:
