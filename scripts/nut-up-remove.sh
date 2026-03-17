@@ -38,6 +38,16 @@ if [[ -d "${INSTALL_DIR}" ]]; then
     rm -rf "${INSTALL_DIR}"
 fi
 
+# --- Close firewall ports if UFW is active ---
+if command -v ufw &>/dev/null && ufw status | grep -q "Status: active"; then
+    if ufw status | grep -q "3494.*nut-up"; then
+        echo "==> Closing port 3494 in UFW..."
+        ufw delete allow 3494/tcp >/dev/null 2>&1 || true
+    fi
+    # Leave 3493 open — NUT may still be in use
+    echo "==> Note: port 3493 (NUT upsd) left open in case NUT is still running"
+fi
+
 echo ""
 echo "============================================"
 echo "  nut-up removed."

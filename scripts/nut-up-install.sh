@@ -75,6 +75,21 @@ cp "${INSTALL_DIR}/scripts/nut-up.service" /etc/systemd/system/nut-up.service
 systemctl daemon-reload
 echo "==> Installed systemd service"
 
+# --- Open firewall port if UFW is active ---
+if command -v ufw &>/dev/null && ufw status | grep -q "Status: active"; then
+    if ! ufw status | grep -q "3494"; then
+        echo "==> Opening port 3494 in UFW..."
+        ufw allow 3494/tcp comment "nut-up web UI" >/dev/null
+    else
+        echo "==> Port 3494 already open in UFW"
+    fi
+    # NUT upsd port for client enrollment
+    if ! ufw status | grep -q "3493"; then
+        echo "==> Opening port 3493 in UFW (NUT upsd for clients)..."
+        ufw allow 3493/tcp comment "NUT upsd" >/dev/null
+    fi
+fi
+
 echo ""
 echo "============================================"
 echo "  nut-up installed successfully!"
