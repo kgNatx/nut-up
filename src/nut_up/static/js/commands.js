@@ -33,18 +33,18 @@
             html += '</div>';
 
             if (_commands[name] && _commands[name].length > 0) {
-                html += '<div class="cmd-list">';
+                html += '<div class="table-wrap"><table>';
+                html += '<thead><tr><th>Command</th><th>Description</th><th></th></tr></thead>';
+                html += '<tbody>';
                 for (const cmd of _commands[name]) {
                     const desc = App.getDescription('commands', cmd);
-                    html += '<div class="cmd-item">';
-                    html += '<div class="cmd-item-info">';
-                    html += '<span class="cmd-name mono">' + esc(cmd) + '</span>';
-                    if (desc) html += '<span class="cmd-desc">' + esc(desc) + '</span>';
-                    html += '</div>';
-                    html += '<button class="btn btn-ghost btn-sm" onclick="runCommand(\'' + escAttr(name) + '\', \'' + escAttr(cmd) + '\')">Run</button>';
-                    html += '</div>';
+                    html += '<tr>';
+                    html += '<td class="mono">' + esc(cmd) + '</td>';
+                    html += '<td class="text-muted" style="font-size:12px">' + esc(desc) + '</td>';
+                    html += '<td style="width:60px;text-align:right"><button class="btn btn-ghost btn-sm" onclick="runCommand(\'' + escAttr(name) + '\', \'' + escAttr(cmd) + '\')">Run</button></td>';
+                    html += '</tr>';
                 }
-                html += '</div>';
+                html += '</tbody></table></div>';
             } else if (_commands[name]) {
                 html += '<div class="text-muted" style="padding:8px 0">No instant commands available</div>';
             } else {

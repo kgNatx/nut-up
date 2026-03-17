@@ -3,6 +3,9 @@
    ============================================================ */
 
 (function () {
+    // Cache of writable variable names per UPS (loaded once)
+    var _rwVars = {};
+
     function render() {
         const esc = App.escapeHtml.bind(App);
         const escAttr = App.escapeAttr.bind(App);
@@ -18,11 +21,12 @@
         }
 
         let html = '<div class="page-header"><h1 class="page-title">Variables</h1>' +
-            '<p class="page-subtitle">Raw NUT variable data for each UPS</p></div>';
+            '<p class="page-subtitle">NUT variable data — writable variables can be edited inline</p></div>';
 
         for (const name of names) {
             const u = ups[name];
             const vars = u.variables || {};
+            const rw = _rwVars[name] || {};
             const varNames = Object.keys(vars).sort();
 
             html += '<div class="card section">';
@@ -52,13 +56,29 @@
                     for (const vn of groups[gk]) {
                         const val = vars[vn];
                         const desc = App.getDescription('variables', vn);
+                        const isWritable = vn in rw;
+
                         html += '<tr>';
-                        html += '<td class="mono">' + esc(vn) + '</td>';
-                        html += '<td class="mono">' + esc(val) + '</td>';
+                        html += '<td class="mono">' + esc(vn);
+                        if (isWritable) html += ' <span class="badge badge-info" style="font-size:9px;padding:1px 5px">RW</span>';
+                        html += '</td>';
+
+                        if (isWritable) {
+                            // Editable field
+                            html += '<td><input class="input" type="text" id="var-' + escAttr(name) + '-' + escAttr(vn) + '" value="' + escAttr(val) + '" style="max-width:160px;font-family:var(--font-mono);font-size:13px"></td>';
+                        } else {
+                            html += '<td class="mono">' + esc(val) + '</td>';
+                        }
+
                         html += '<td class="text-muted" style="font-size:12px">' + esc(desc) + '</td>';
-                        html += '<td style="width:60px;text-align:right">' +
-                            '<button class="btn btn-ghost btn-sm" onclick="App.copyToClipboard(\'' + escAttr(val) + '\')">Copy</button>' +
-                            '</td>';
+
+                        html += '<td style="width:80px;text-align:right">';
+                        if (isWritable) {
+                            html += '<button class="btn btn-primary btn-sm" onclick="saveVar(\'' + escAttr(name) + '\', \'' + escAttr(vn) + '\')">Set</button>';
+                        } else {
+                            html += '<button class="btn btn-ghost btn-sm" onclick="App.copyToClipboard(\'' + escAttr(val) + '\')">Copy</button>';
+                        }
+                        html += '</td>';
                         html += '</tr>';
                     }
                 }
@@ -72,20 +92,59 @@
         return html;
     }
 
-    App.registerPage('variables', render);
-})();
+    function init() {
+        // Load writable variable names for each UPS (once)
+        const names = Object.keys(App.state.ups);
+        for (const name of names) {
+            if (_rwVars[name]) continue; // already loaded
+            App.api('/api/ups/' + encodeURIComponent(name) + '/rw')
+                .then(function (vars) {
+                    _rwVars[name] = vars;
+                    App.refresh();
+                })
+                .catch(function () {
+                    _rwVars[name] = {}; // mark as loaded (empty)
+                });
+        }
+    }
 
-// Global function for refresh button
-function refreshVars(upsName) {
-    App.api('/api/ups/' + encodeURIComponent(upsName) + '/variables')
-        .then(function (vars) {
-            if (App.state.ups[upsName]) {
-                App.state.ups[upsName].variables = vars;
-            }
-            App.refresh();
-            App.toast('Variables refreshed', 'success');
+    App.registerPage('variables', render, init);
+
+    window.refreshVars = function (upsName) {
+        App.api('/api/ups/' + encodeURIComponent(upsName) + '/variables')
+            .then(function (vars) {
+                if (App.state.ups[upsName]) {
+                    App.state.ups[upsName].variables = vars;
+                }
+                App.refresh();
+                App.toast('Variables refreshed', 'success');
+            })
+            .catch(function (err) {
+                App.toast('Failed to refresh: ' + err.message, 'error');
+            });
+    };
+
+    window.saveVar = function (upsName, varName) {
+        var inputEl = document.getElementById('var-' + upsName + '-' + varName);
+        if (!inputEl) return;
+        var newValue = inputEl.value;
+
+        App.api('/api/ups/' + encodeURIComponent(upsName) + '/variable', {
+            method: 'POST',
+            body: { variable: varName, value: newValue },
         })
-        .catch(function (err) {
-            App.toast('Failed to refresh: ' + err.message, 'error');
-        });
-}
+            .then(function () {
+                App.toast(varName + ' updated', 'success');
+                // Update local state
+                if (App.state.ups[upsName] && App.state.ups[upsName].variables) {
+                    App.state.ups[upsName].variables[varName] = newValue;
+                }
+                if (_rwVars[upsName]) {
+                    _rwVars[upsName][varName] = newValue;
+                }
+            })
+            .catch(function (err) {
+                App.toast('Failed to set ' + varName + ': ' + err.message, 'error');
+            });
+    };
+})();
