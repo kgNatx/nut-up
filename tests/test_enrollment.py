@@ -60,6 +60,7 @@ def test_generate_enrollment_script(em):
         key="nutup_testkey",
         server_host="10.0.0.1",
         server_port=3493,
+        web_port=3494,
         ups_name="myups",
         monitor_password="secret123",
     )

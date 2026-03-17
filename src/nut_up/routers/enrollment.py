@@ -95,12 +95,20 @@ async def setup_endpoint(key: str, request: Request) -> PlainTextResponse:
     if not server_host:
         server_host = _get_local_ip()
 
+    # Determine the web UI port from the request
+    web_port = request.url.port or 3494
+
+    # Optional shutdown command override
+    shutdown_cmd = request.query_params.get("shutdown_cmd", "/sbin/shutdown -h +0")
+
     script = em.generate_enrollment_script(
         key=key,
         server_host=server_host,
         server_port=3493,
+        web_port=web_port,
         ups_name=ups_name,
         monitor_password=monitor_password,
+        shutdown_cmd=shutdown_cmd,
     )
     return PlainTextResponse(script, media_type="text/x-shellscript")
 

@@ -101,8 +101,10 @@ class EnrollmentManager:
         key: str,
         server_host: str,
         server_port: int,
+        web_port: int,
         ups_name: str,
         monitor_password: str,
+        shutdown_cmd: str = "/sbin/shutdown -h +0",
     ) -> str:
         """Generate a bash enrollment script for a client machine."""
         return dedent(f"""\
@@ -133,7 +135,7 @@ class EnrollmentManager:
 
             cat > /etc/nut/upsmon.conf << 'UPSMONEOF'
             MONITOR {ups_name}@{server_host}:{server_port} 1 upsmon_secondary {monitor_password} secondary
-            SHUTDOWNCMD "/sbin/shutdown -h +0"
+            SHUTDOWNCMD "{shutdown_cmd}"
             UPSMONEOF
 
             # Start nut-monitor
@@ -151,7 +153,7 @@ class EnrollmentManager:
             # Phone home
             HOSTNAME=$(hostname)
             IP=$(hostname -I | awk '{{print $1}}')
-            curl -s -X POST http://{server_host}:{server_port}/api/enroll/confirm \\
+            curl -s -X POST http://{server_host}:{web_port}/api/enroll/confirm \\
                 -H 'Content-Type: application/json' \\
                 -d '{{"key": "{key}", "hostname": "'"$HOSTNAME"'", "ip": "'"$IP"'"}}'
 

@@ -7,6 +7,7 @@
     var _clients = [];
     var _createdKey = null;
     var _curlCmd = null;
+    var _shutdownCmd = null;
 
     function render() {
         const esc = App.escapeHtml.bind(App);
@@ -18,28 +19,35 @@
         // Create Key form
         html += '<div class="card section">';
         html += '<div class="card-header"><div class="card-title">Create Enrollment Key</div></div>';
-        html += '<div class="grid-3" style="align-items:end">';
+        html += '<div class="grid-2" style="align-items:end;margin-bottom:12px">';
         html += '<div class="form-group">';
         html += '<label class="form-label" for="key-label">Label</label>';
-        html += '<input class="input" type="text" id="key-label" placeholder="e.g. Proxmox node 1">';
+        html += '<input class="input" type="text" id="key-label" placeholder="e.g. Proxmox node 1" style="width:100%">';
         html += '</div>';
         html += '<div class="form-group">';
         html += '<label class="form-label" for="key-expiry">Expiry</label>';
-        html += '<select class="input" id="key-expiry">';
+        html += '<select class="input" id="key-expiry" style="width:100%">';
         html += '<option value="0.1667">10 minutes</option>';
         html += '<option value="1">1 hour</option>';
         html += '<option value="24" selected>24 hours</option>';
         html += '<option value="168">7 days</option>';
         html += '</select>';
         html += '</div>';
+        html += '</div>';
+        html += '<div class="form-group" style="margin-bottom:12px">';
+        html += '<label class="form-label" for="key-shutdown">Shutdown Command <span class="text-muted" style="text-transform:none;letter-spacing:0;font-weight:400">(optional — path to script or command)</span></label>';
+        html += '<input class="input" type="text" id="key-shutdown" placeholder="/sbin/shutdown -h +0" style="width:100%">';
+        html += '</div>';
         html += '<div class="form-group">';
         html += '<button class="btn btn-primary" onclick="createEnrollmentKey()">Create Key</button>';
-        html += '</div>';
         html += '</div>';
 
         // Show created key banner
         if (_createdKey) {
-            const setupUrl = window.location.origin + '/setup?key=' + encodeURIComponent(_createdKey);
+            var setupUrl = window.location.origin + '/setup?key=' + encodeURIComponent(_createdKey);
+            if (_shutdownCmd) {
+                setupUrl += '&shutdown_cmd=' + encodeURIComponent(_shutdownCmd);
+            }
             _curlCmd = 'curl -sL "' + setupUrl + '" | sudo bash';
             html += '<div class="banner mt-16">';
             html += '<div class="banner-title">Enrollment Key Created</div>';
@@ -149,6 +157,7 @@
     window.createEnrollmentKey = function () {
         const labelEl = document.getElementById('key-label');
         const expiryEl = document.getElementById('key-expiry');
+        const shutdownEl = document.getElementById('key-shutdown');
         if (!labelEl || !expiryEl) return;
 
         const label = labelEl.value.trim();
@@ -158,6 +167,7 @@
         }
 
         const hours = parseFloat(expiryEl.value);
+        _shutdownCmd = shutdownEl ? shutdownEl.value.trim() || null : null;
 
         App.api('/api/keys', {
             method: 'POST',
