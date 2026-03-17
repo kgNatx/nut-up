@@ -173,19 +173,36 @@ const App = {
     },
 
     refresh() {
-        // Skip re-render if user is focused on an input — avoids destroying
-        // their cursor position, typed text, and focus state.
+        if (!this._currentPage || !this._pages[this._currentPage]) return;
+
+        const content = document.getElementById('content');
+        const renderFn = this._pages[this._currentPage];
+        if (!renderFn) return;
+
+        // Save focused input state before re-render
         const active = document.activeElement;
-        if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT')) {
-            return;
+        let savedFocus = null;
+        if (active && content.contains(active) &&
+            (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT')) {
+            savedFocus = {
+                id: active.id,
+                value: active.value,
+                selectionStart: active.selectionStart,
+                selectionEnd: active.selectionEnd,
+            };
         }
 
         // Re-render current page WITHOUT calling init again
-        if (this._currentPage && this._pages[this._currentPage]) {
-            const content = document.getElementById('content');
-            const renderFn = this._pages[this._currentPage];
-            if (renderFn) {
-                content.innerHTML = renderFn();
+        content.innerHTML = renderFn();
+
+        // Restore focus and value
+        if (savedFocus && savedFocus.id) {
+            const el = document.getElementById(savedFocus.id);
+            if (el) {
+                el.value = savedFocus.value;
+                el.focus();
+                try { el.setSelectionRange(savedFocus.selectionStart, savedFocus.selectionEnd); }
+                catch (e) { /* select elements don't support setSelectionRange */ }
             }
         }
     },
