@@ -19,7 +19,7 @@ class StateManager:
     def load(self) -> dict[str, Any]:
         """Read state from disk. Creates the file with defaults if it doesn't exist."""
         if not self.path.exists():
-            data = {**DEFAULTS}
+            data = json.loads(json.dumps(DEFAULTS))
             self.save(data)
             return data
         return json.loads(self.path.read_text(encoding="utf-8"))
