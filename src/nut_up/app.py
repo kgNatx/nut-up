@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import time
+from collections import deque
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -25,6 +27,7 @@ _ws_manager: ConnectionManager | None = None
 _upsd_client: UpsdClient | None = None
 _state_manager: StateManager | None = None
 _latest_ups_data: dict = {}
+_ups_history: dict[str, deque] = {}
 
 
 def get_ws_manager() -> ConnectionManager:
@@ -44,6 +47,10 @@ def get_state_manager() -> StateManager:
 
 def get_latest_ups_data() -> dict:
     return _latest_ups_data
+
+
+def get_ups_history() -> dict[str, list]:
+    return {name: list(dq) for name, dq in _ups_history.items()}
 
 
 # ---------------------------------------------------------------------------
@@ -75,6 +82,19 @@ async def _poll_ups(client: UpsdClient, manager: ConnectionManager) -> None:
                 }
 
             _latest_ups_data = data
+
+            for name, ups_info in data.items():
+                variables = ups_info.get("variables", {})
+                if name not in _ups_history:
+                    _ups_history[name] = deque(maxlen=900)  # 30 min at 2s intervals
+                _ups_history[name].append({
+                    "t": int(time.time() * 1000),
+                    "battery_charge": float(variables.get("battery.charge", 0)),
+                    "load": float(variables.get("ups.load", 0)),
+                    "input_voltage": float(variables.get("input.voltage", 0)),
+                    "output_voltage": float(variables.get("output.voltage", 0)),
+                })
+
             await manager.broadcast({"type": "ups_data", "data": data})
 
         except Exception as e:

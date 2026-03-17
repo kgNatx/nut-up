@@ -32,6 +32,16 @@ async def get_ups(name: str) -> dict:
     return data[name]
 
 
+@router.get("/api/ups/{name}/history")
+async def get_history(name: str):
+    from nut_up.app import get_ups_history
+
+    history = get_ups_history()
+    if name not in history:
+        return []
+    return history[name]
+
+
 @router.get("/api/ups/{name}/variables")
 async def get_ups_variables(name: str) -> dict:
     from nut_up.app import get_upsd_client

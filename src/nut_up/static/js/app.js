@@ -24,7 +24,7 @@ const App = {
     // (approximately 5 minutes at 2-second polling intervals).
     // ----------------------------------------------------------
     _history: {},
-    _HISTORY_MAX: 150,
+    _HISTORY_MAX: 900,
 
     /**
      * Push current UPS values into the history ring buffer.
@@ -455,6 +455,37 @@ const App = {
         this.setupRouter();
         this.connectWebSocket();
         this._onRouteChange();
+
+        // Pre-load server-side history
+        this.api('/api/ups').then(upsData => {
+            for (const name of Object.keys(upsData)) {
+                this.api('/api/ups/' + encodeURIComponent(name) + '/history').then(history => {
+                    if (!Array.isArray(history) || history.length === 0) return;
+                    if (!this._history[name]) {
+                        this._history[name] = {
+                            timestamps: [], battery_charge: [], load: [],
+                            input_voltage: [], output_voltage: [],
+                        };
+                    }
+                    const h = this._history[name];
+                    for (const point of history) {
+                        h.timestamps.push(point.t);
+                        h.battery_charge.push(point.battery_charge);
+                        h.load.push(point.load);
+                        h.input_voltage.push(point.input_voltage);
+                        h.output_voltage.push(point.output_voltage);
+                    }
+                    // Cap at max
+                    if (h.timestamps.length > this._HISTORY_MAX) {
+                        const excess = h.timestamps.length - this._HISTORY_MAX;
+                        for (const key of Object.keys(h)) {
+                            h[key].splice(0, excess);
+                        }
+                    }
+                    this.refresh();
+                }).catch(() => {});  // Silently ignore if history not available
+            }
+        }).catch(() => {});
     },
 };
 

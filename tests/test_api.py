@@ -40,3 +40,9 @@ async def test_get_server_info(client):
     data = resp.json()
     assert "version" in data
     assert data["name"] == "nut-up"
+
+
+async def test_get_history(client):
+    resp = await client.get("/api/ups/myups/history")
+    assert resp.status_code == 200
+    assert isinstance(resp.json(), list)
