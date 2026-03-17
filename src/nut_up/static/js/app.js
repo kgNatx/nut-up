@@ -464,14 +464,9 @@ const App = {
      * @param {string} text - Text to copy
      */
     copyToClipboard(text) {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(text).then(() => {
-                this.toast('Copied to clipboard', 'success');
-            }).catch(() => {
-                this.toast('Failed to copy', 'error');
-            });
-        } else {
-            // Fallback for older browsers / non-HTTPS
+        const self = this;
+
+        function fallback() {
             const ta = document.createElement('textarea');
             ta.value = text;
             ta.style.position = 'fixed';
@@ -480,10 +475,22 @@ const App = {
             ta.select();
             try {
                 document.execCommand('copy');
-                this.toast('Copied to clipboard', 'success');
+                self.toast('Copied to clipboard', 'success');
             } catch (e) {
-                this.toast('Failed to copy', 'error');
+                self.toast('Failed to copy', 'error');
             }
+            document.body.removeChild(ta);
+        }
+
+        // navigator.clipboard requires HTTPS — fall back on HTTP
+        if (window.isSecureContext && navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => {
+                self.toast('Copied to clipboard', 'success');
+            }).catch(() => {
+                fallback();
+            });
+        } else {
+            fallback();
             document.body.removeChild(ta);
         }
     },
