@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_URL="https://github.com/YOUR_USER/nut-up"
+REPO_URL="https://github.com/kgNatx/nut-up"
 INSTALL_DIR="/opt/nut-up"
 
 # --- Check root ---
