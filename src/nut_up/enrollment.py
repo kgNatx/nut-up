@@ -162,7 +162,12 @@ class EnrollmentManager:
             if command -v pvesh &>/dev/null; then
                 echo ""
                 echo "Proxmox detected — updating node notes..."
-                NOTE="\\n---\\n**UPS Protected** by nut-up\\nUPS: {ups_name}@{server_host}:{server_port}\\nDashboard: http://{server_host}:{web_port}\\nEnrolled: $(date -Iseconds)"
+                NOTE="
+---
+**UPS Protected** by nut-up
+UPS: {ups_name}@{server_host}:{server_port}
+Dashboard: http://{server_host}:{web_port}
+Enrolled: $(date -Iseconds)"
                 CURRENT=$(pvesh get /nodes/"$(hostname)"/config --output-format json 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin).get('description',''))" 2>/dev/null || echo "")
                 if echo "$CURRENT" | grep -q "UPS Protected"; then
                     echo "  Node notes already contain UPS info — skipping."
