@@ -89,7 +89,10 @@
                 html += '<td>' + esc(k.created_at ? new Date(k.created_at).toLocaleString() : '--') + '</td>';
                 html += '<td>' + esc(k.expires_at ? new Date(k.expires_at).toLocaleString() : '--') + '</td>';
                 html += '<td>' + statusHtml + '</td>';
-                html += '<td style="width:80px;text-align:right">';
+                html += '<td style="text-align:right;white-space:nowrap">';
+                if (!isRevoked && !isExpired) {
+                    html += '<button class="btn btn-ghost btn-sm" onclick="copyKeyUrl(\'' + escAttr(k.key) + '\')" style="margin-right:4px">Copy URL</button>';
+                }
                 if (!isRevoked) {
                     html += '<button class="btn btn-danger btn-sm" onclick="revokeKey(\'' + escAttr(k.key) + '\')">Revoke</button>';
                 }
@@ -160,6 +163,12 @@
     App.registerPage('enrollment', render, init);
 
     // Global functions for onclick handlers
+    window.copyKeyUrl = function (key) {
+        var url = window.location.origin + '/setup?key=' + encodeURIComponent(key);
+        var cmd = 'curl -sL "' + url + '" | sudo bash';
+        App.copyToClipboard(cmd);
+    };
+
     window.copyCurlCmd = function () {
         if (_curlCmd) App.copyToClipboard(_curlCmd);
     };
