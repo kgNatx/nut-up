@@ -101,6 +101,10 @@
 
         html += '</div>'; // end keys card
 
+        // Unenroll command
+        var unenrollUrl = window.location.origin + '/unenroll';
+        var unenrollCmd = 'curl -sL "' + unenrollUrl + '" | sudo bash';
+
         // Enrolled Clients table
         html += '<div class="card section">';
         html += '<div class="card-header"><div class="card-title">Enrolled Clients</div></div>';
@@ -109,16 +113,22 @@
             html += '<div class="text-muted text-center" style="padding:20px">No enrolled clients</div>';
         } else {
             html += '<div class="table-wrap"><table>';
-            html += '<thead><tr><th>Hostname</th><th>IP Address</th><th>Enrolled</th></tr></thead>';
+            html += '<thead><tr><th>Hostname</th><th>IP Address</th><th>Enrolled</th><th></th></tr></thead>';
             html += '<tbody>';
             for (const c of _clients) {
                 html += '<tr>';
                 html += '<td class="mono">' + esc(c.hostname || '') + '</td>';
                 html += '<td class="mono">' + esc(c.ip || '') + '</td>';
                 html += '<td>' + esc(c.enrolled_at ? new Date(c.enrolled_at).toLocaleString() : '--') + '</td>';
+                html += '<td style="width:80px;text-align:right"><button class="btn btn-danger-hover btn-sm" onclick="removeClient(\'' + escAttr(c.hostname) + '\')">Remove</button></td>';
                 html += '</tr>';
             }
             html += '</tbody></table></div>';
+
+            html += '<div style="margin-top:12px;font-size:12px;color:var(--text-muted)">';
+            html += 'To fully unenroll a client, run on the client machine: ';
+            html += '<code class="mono" style="color:var(--text-secondary)">' + esc(unenrollCmd) + '</code>';
+            html += '</div>';
         }
 
         html += '</div>'; // end clients card
@@ -201,6 +211,25 @@
             })
             .catch(function (err) {
                 App.toast('Failed to revoke key: ' + err.message, 'error');
+            });
+    };
+
+    window.removeClient = function (hostname) {
+        if (!confirm('Remove "' + hostname + '" from enrolled clients?\n\nThis only removes it from the server list. To fully unenroll, run the unenroll script on the client machine.')) return;
+        App.api('/api/enroll/remove', {
+            method: 'POST',
+            body: { hostname: hostname },
+        })
+            .then(function () {
+                App.toast('Client removed', 'success');
+                return App.api('/api/clients');
+            })
+            .then(function (clients) {
+                _clients = clients;
+                App.refresh();
+            })
+            .catch(function (err) {
+                App.toast('Failed to remove client: ' + err.message, 'error');
             });
     };
 })();

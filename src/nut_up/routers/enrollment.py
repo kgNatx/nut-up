@@ -122,6 +122,116 @@ async def enrollment_confirm(body: EnrollConfirmRequest) -> dict:
     return {"status": "ok"}
 
 
+@router.get("/unenroll")
+async def unenroll_endpoint(request: Request) -> PlainTextResponse:
+    """Serve a script that removes NUT client config from a machine."""
+    server_host = request.headers.get("x-forwarded-host")
+    if not server_host:
+        host_header = request.headers.get("host", "")
+        if ":" in host_header:
+            server_host = host_header.rsplit(":", 1)[0]
+        else:
+            server_host = host_header
+    if not server_host:
+        server_host = _get_local_ip()
+
+    web_port = request.url.port or 3494
+
+    script = _generate_unenroll_script(server_host, web_port)
+    return PlainTextResponse(script, media_type="text/x-shellscript")
+
+
+def _generate_unenroll_script(server_host: str, web_port: int) -> str:
+    return f"""#!/bin/bash
+set -euo pipefail
+
+echo "=== nut-up client removal ==="
+echo ""
+
+# Stop and disable nut-monitor
+if systemctl is-active --quiet nut-monitor 2>/dev/null; then
+    echo "Stopping nut-monitor..."
+    systemctl stop nut-monitor
+fi
+if systemctl is-enabled --quiet nut-monitor 2>/dev/null; then
+    systemctl disable nut-monitor
+fi
+
+# Remove NUT config files we created
+if [ -f /etc/nut/nut.conf ]; then
+    echo "Removing /etc/nut/nut.conf..."
+    rm -f /etc/nut/nut.conf
+fi
+if [ -f /etc/nut/upsmon.conf ]; then
+    echo "Removing /etc/nut/upsmon.conf..."
+    rm -f /etc/nut/upsmon.conf
+fi
+
+# Optionally remove nut-client package
+read -p "Remove nut-client package? [y/N] " -n 1 -r
+echo ""
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    if command -v apt-get &>/dev/null; then
+        apt-get remove -y -qq nut-client
+    elif command -v dnf &>/dev/null; then
+        dnf remove -y nut-client
+    fi
+    echo "nut-client removed."
+else
+    echo "nut-client kept (configs removed)."
+fi
+
+# Proxmox: remove UPS info from node notes
+if command -v pvesh &>/dev/null; then
+    echo ""
+    echo "Proxmox detected — cleaning node notes..."
+    CURRENT=$(pvesh get /nodes/"$(hostname)"/config --output-format json 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin).get('description',''))" 2>/dev/null || echo "")
+    if echo "$CURRENT" | grep -q "UPS Protected"; then
+        CLEANED=$(echo "$CURRENT" | python3 -c "
+import sys
+text = sys.stdin.read()
+# Remove the nut-up block (from ---\\nUPS Protected to next --- or end)
+import re
+text = re.sub(r'\\n?---\\n\\*\\*UPS Protected\\*\\*.*?(?=\\n---|$)', '', text, flags=re.DOTALL)
+print(text.strip())
+")
+        pvesh set /nodes/"$(hostname)"/config --description "$CLEANED" 2>/dev/null \\
+            && echo "  Node notes cleaned." \\
+            || echo "  WARNING: Could not update node notes."
+    fi
+fi
+
+# Notify server
+HOSTNAME=$(hostname)
+curl -s -X POST "http://{server_host}:{web_port}/api/enroll/remove" \\
+    -H 'Content-Type: application/json' \\
+    -d '{{"hostname": "'"$HOSTNAME"'"}}' 2>/dev/null || true
+
+echo ""
+echo "=== Client removed ==="
+echo "This machine is no longer monitored by nut-up."
+"""
+
+
+@router.post("/api/enroll/remove")
+async def enrollment_remove(body: dict) -> dict:
+    """Remove a client from the enrolled list."""
+    from nut_up.app import get_state_manager
+
+    hostname = body.get("hostname", "")
+    if not hostname:
+        raise HTTPException(status_code=400, detail="hostname required")
+
+    state = get_state_manager()
+
+    def remove_client(data: dict) -> dict:
+        data["clients"].pop(hostname, None)
+        return data
+
+    state.update(remove_client)
+    return {"status": "ok", "hostname": hostname}
+
+
 @router.get("/api/manual-setup")
 async def manual_setup_info() -> dict:
     from nut_up.app import get_state_manager
