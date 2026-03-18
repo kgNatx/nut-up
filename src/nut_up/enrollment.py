@@ -138,7 +138,8 @@ class EnrollmentManager:
             SHUTDOWNCMD "{shutdown_cmd}"
             UPSMONEOF
 
-            # Start nut-monitor
+            # Start nut-monitor (reset failed state if needed)
+            systemctl reset-failed nut-monitor 2>/dev/null || true
             systemctl enable nut-monitor
             systemctl restart nut-monitor
 
