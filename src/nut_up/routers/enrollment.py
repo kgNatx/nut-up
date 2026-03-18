@@ -167,19 +167,9 @@ if [ -f /etc/nut/upsmon.conf ]; then
     rm -f /etc/nut/upsmon.conf
 fi
 
-# Optionally remove nut-client package
-read -p "Remove nut-client package? [y/N] " -n 1 -r
-echo ""
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    if command -v apt-get &>/dev/null; then
-        apt-get remove -y -qq nut-client
-    elif command -v dnf &>/dev/null; then
-        dnf remove -y nut-client
-    fi
-    echo "nut-client removed."
-else
-    echo "nut-client kept (configs removed)."
-fi
+# Note: nut-client package is left installed.
+# To remove it: apt remove nut-client
+echo "nut-client package left installed (remove manually if desired)."
 
 # Proxmox: remove UPS info from node notes
 if command -v pvesh &>/dev/null; then
