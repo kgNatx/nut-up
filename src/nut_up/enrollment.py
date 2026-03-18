@@ -157,6 +157,21 @@ class EnrollmentManager:
                 -H 'Content-Type: application/json' \\
                 -d '{{"key": "{key}", "hostname": "'"$HOSTNAME"'", "ip": "'"$IP"'"}}'
 
+            # Proxmox: append UPS info to node notes
+            if command -v pvesh &>/dev/null; then
+                echo ""
+                echo "Proxmox detected — updating node notes..."
+                NOTE="\\n---\\n**UPS Protected** by nut-up\\nUPS: {ups_name}@{server_host}:{server_port}\\nDashboard: http://{server_host}:{web_port}\\nEnrolled: $(date -Iseconds)"
+                CURRENT=$(pvesh get /nodes/"$(hostname)"/config --output-format json 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin).get('description',''))" 2>/dev/null || echo "")
+                if echo "$CURRENT" | grep -q "UPS Protected"; then
+                    echo "  Node notes already contain UPS info — skipping."
+                else
+                    pvesh set /nodes/"$(hostname)"/config --description "$CURRENT$NOTE" 2>/dev/null \\
+                        && echo "  Node notes updated." \\
+                        || echo "  WARNING: Could not update node notes."
+                fi
+            fi
+
             echo ""
             echo "=== Enrollment complete ==="
         """)
